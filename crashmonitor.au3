@@ -84,7 +84,7 @@ If (FileExists($ffmpegfile)) Then
 		$hfile = FileOpen($tempfile, 26)
 		FileClose($hfile)
 		_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
-		$ffpid = Run('cmd /c "' & $ffmpegfile & ' -y -f gdigrab -framerate 30 -t 300 -i title=^"' & $title & '^" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
+		$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $title & '" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
 	EndIf
 Else
 	$videorecord = False
@@ -150,7 +150,7 @@ While 1
 	If ($videorecord) Then
 		If Not (ProcessExists($ffpid)) Then
 			_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
-			$ffpid = Run('cmd /c "' & $ffmpegfile & ' -y -f gdigrab -framerate 30 -t 300 -i title=^"' & $title & '^" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
+			$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $title & '" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
 		EndIf
 	EndIf
 	$hwndarray = 0
@@ -183,7 +183,14 @@ While 1
 		EndIf
 	EndIf
 	If Not ($crash == "") Then
-		WinMinimizeAll()
+		If Not ($hwnde == 0) Then
+			If ($hwnde == $hwnd) Then
+				WinSetState($hwnde, "", @SW_MINIMIZE)
+			Else
+				WinSetState($hwnd, "", @SW_MINIMIZE)
+				WinSetState($hwnde, "", @SW_MINIMIZE)
+			EndIf
+		EndIf
 		ProgressOn("Please, wait", "Please, wait")
 		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
 		$crashreportdir = $scriptdir & "\" & $crashreport
@@ -234,7 +241,7 @@ While 1
 					$childarray[0][0] -= 1
 				WEnd
 			EndIf
-			$ffpid = Run('cmd /c "' & $ffmpegfile & '" -sseof -10 -i temp.flv ' & $crashreport & '.flv', $scriptdir, @SW_HIDE)
+			$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -sseof -10 -i temp.flv ' & $crashreport & '.flv"', $scriptdir, @SW_HIDE)
 			If ProcessWaitClose($ffpid, 10) Then
 				FileMove($crashreportdir & ".flv", $crashreportdir & "\" & $crashreport & ".flv", 9)
 			EndIf
