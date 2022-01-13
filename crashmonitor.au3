@@ -433,23 +433,22 @@ If (IsArray($dirs)) Then
 		EndIf
 		DirRemove($tempdir, 1)
 		ProgressOff()
-	EndIf
-EndIf
-
-$files = 0
-$files = _FileListToArray($scriptdir, "*.7z", 1, 1)
-If (IsArray($files)) Then
-	While Not ($files[0] == 0)
-		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
-			$idbutton = MsgBox(262192, "Crashreport is ready", "ENG:Please transfer this archive to the developers of this mod or the developers of sfall" & @CRLF & "RUS:Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall" & @CRLF & @CRLF & $files[$files[0]])
-			If ($idbutton == 1) Then
-				ShellExecute($scriptdir)
-			EndIf
-			ExitLoop
-		Else
-			$files[0] -= 1
+		$files = 0
+		$files = _FileListToArray($scriptdir, "*.7z", 1, 1)
+		If (IsArray($files)) Then
+			While Not ($files[0] == 0)
+				If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
+					$idbutton = MsgBox(262192, "Crashreport is ready", "ENG:Please transfer this archive to the developers of this mod or the developers of sfall" & @CRLF & "RUS:Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall" & @CRLF & @CRLF & $files[$files[0]])
+					If ($idbutton == 1) Then
+						ShellExecute($scriptdir)
+					EndIf
+					ExitLoop
+				Else
+					$files[0] -= 1
+				EndIf
+			WEnd
 		EndIf
-	WEnd
+	EndIf
 EndIf
 
 
