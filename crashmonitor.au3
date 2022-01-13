@@ -29,11 +29,19 @@ Local $extensions[] = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
 $tempdir = @TempDir & "\crashmonitor"
 $scriptdir = @ScriptDir
 $crashmonitorlog = $scriptdir & "\crashmonitor.log"
+$tempfile = $scriptdir & "\temp.flv"
+$ffmpegfile = $scriptdir & "\ffmpeg.exe"
 
 
 
 If ($CmdLine[0] > 0) Then
-	$hwnd = HWnd(Ptr($CmdLine[1]))
+	If ($CmdLine[1] == 0) Then
+		Opt("WinTitleMatchMode", -1)
+		$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 15)
+		Opt("WinTitleMatchMode", 1)
+	Else
+		$hwnd = HWnd(Ptr($CmdLine[1]))
+	EndIf
 Else
 	Opt("WinTitleMatchMode", -1)
 	$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 15)
@@ -65,6 +73,21 @@ If ($CmdLine[0] > 2) Then
 	$dumptype = _DWORD(Ptr($CmdLine[3]))
 Else
 	$dumptype = _DWORD(Ptr("0x00000000"))
+EndIf
+
+If (FileExists($ffmpegfile)) Then
+	$videorecord = True
+	$title = WinGetTitle($hwnd)
+	If ($title == "") Then
+		$videorecord = False
+	Else
+		$hfile = FileOpen($tempfile, 26)
+		FileClose($hfile)
+		_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
+		$ffpid = Run('cmd /c "' & $ffmpegfile & ' -y -f gdigrab -framerate 30 -t 300 -i title=^"' & $title & '^" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
+	EndIf
+Else
+	$videorecord = False
 EndIf
 
 $pid = WinGetProcess($hwnd)
@@ -122,6 +145,12 @@ While 1
 			Else
 				ExitLoop
 			EndIf
+		EndIf
+	EndIf
+	If ($videorecord) Then
+		If Not (ProcessExists($ffpid)) Then
+			_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
+			$ffpid = Run('cmd /c "' & $ffmpegfile & ' -y -f gdigrab -framerate 30 -t 300 -i title=^"' & $title & '^" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
 		EndIf
 	EndIf
 	$hwndarray = 0
@@ -193,6 +222,23 @@ While 1
 			EndIf
 		EndIf
 		ProgressOff()
+		If ($videorecord) Then
+			$childarray = 0
+			$childarray = _WinAPI_EnumChildProcess($ffpid)
+			If (IsArray($childarray)) Then
+				While Not ($childarray[0][0] == 0)
+					If ($childarray[$childarray[0][0]][1] == "ffmpeg.exe") Then
+						ProcessClose($childarray[$childarray[0][0]][0])
+						ExitLoop
+					EndIf
+					$childarray[0][0] -= 1
+				WEnd
+			EndIf
+			$ffpid = Run('cmd /c "' & $ffmpegfile & '" -sseof -10 -i temp.flv ' & $crashreport & '.flv', $scriptdir, @SW_HIDE)
+			If ProcessWaitClose($ffpid, 10) Then
+				FileMove($crashreportdir & ".flv", $crashreportdir & "\" & $crashreport & ".flv", 9)
+			EndIf
+		EndIf
 		If Not ($hwnde == 0) Then
 			If ($hwnde == $hwnd) Then
 				WinClose($hwnde)
@@ -295,6 +341,20 @@ While 1
 	EndIf
 	Sleep(1000)
 WEnd
+
+If ($videorecord) Then
+	$childarray = 0
+	$childarray = _WinAPI_EnumChildProcess($ffpid)
+	If (IsArray($childarray)) Then
+		While Not ($childarray[0][0] == 0)
+			If ($childarray[$childarray[0][0]][1] == "ffmpeg.exe") Then
+				ProcessClose($childarray[$childarray[0][0]][0])
+				ExitLoop
+			EndIf
+			$childarray[0][0] -= 1
+		WEnd
+	EndIf
+EndIf
 
 $dirs = 0
 $dirs = _FileListToArray($scriptdir, "*", 2, 0)
