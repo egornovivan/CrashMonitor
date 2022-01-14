@@ -19,6 +19,7 @@
 #include <StaticConstants.au3>
 #include <WinAPI.au3>
 #include <WindowsConstants.au3>
+#include <WinAPILocale.au3>
 ; *** End added by AutoIt3Wrapper ***
 Opt("TrayAutoPause", 0)
 Opt("TrayIconHide", 1)
@@ -31,6 +32,53 @@ $scriptdir = @ScriptDir
 $crashmonitorlog = $scriptdir & "\crashmonitor.log"
 $tempfile = $scriptdir & "\temp.flv"
 $ffmpegfile = $scriptdir & "\ffmpeg.exe"
+
+$lang = 0
+$lang = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
+If (IsArray($lang)) Then
+	If ($lang[$lang[0]] == "ru-RU") Then
+		$text1 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
+		$text2 = "Хотите подготовить crashreport для его отправки разработчикам?"
+		$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
+		$text4 = "Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall"
+	Else
+		$text1 = "You have less than 1GB of free disk space, please free up a few gigabytes."
+		$text2 = "Would you like to prepare a crashreport to send to developers?"
+		$text3 = "Please tell us what happened in the game a few seconds before the crash"
+		$text4 = "Please transfer this archive to the developers of this mod or the developers of sfall"
+	EndIf
+Else
+	$text1 = "You have less than 1GB of free disk space, please free up a few gigabytes."
+	$text2 = "Would you like to prepare a crashreport to send to developers?"
+	$text3 = "Please tell us what happened in the game a few seconds before the crash"
+	$text4 = "Please transfer this archive to the developers of this mod or the developers of sfall"
+EndIf
+
+
+
+$drivespacefree = Round(DriveSpaceFree($scriptdir))
+If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
+	Sleep(2000)
+	MsgBox(262192, "Free Disk Space", $text1)
+EndIf
+
+$files = 0
+$files = _FileListToArray($scriptdir, "*.dmp", 1, 1)
+If (IsArray($files)) Then
+	While Not ($files[0] == 0)
+		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.dmp$", 0, 1)) Then
+			If (FileExists($files[$files[0]])) Then
+				FileDelete($files[$files[0]])
+			EndIf
+			If (FileExists(StringRegExpReplace($files[$files[0]], "\.dmp$", "_crash.txt"))) Then
+				FileDelete(StringRegExpReplace($files[$files[0]], "\.dmp$", "_crash.txt"))
+			EndIf
+			$files[0] -= 1
+		Else
+			$files[0] -= 1
+		EndIf
+	WEnd
+EndIf
 
 
 
@@ -49,14 +97,6 @@ Else
 EndIf
 If ($hwnd == 0) Then
 	Exit
-EndIf
-
-$drivespacefree = Round(DriveSpaceFree($scriptdir))
-If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
-	Sleep(2000)
-	WinSetState($hwnd, "", @SW_MINIMIZE)
-	MsgBox(262192, "Free Disk Space", "ENG:You have less than 1GB of free disk space, please free up a few gigabytes." & @CRLF & "RUS:У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт.")
-	WinSetState($hwnd, "", @SW_RESTORE)
 EndIf
 
 If ($CmdLine[0] > 1) Then
@@ -158,10 +198,10 @@ While 1
 	If (IsArray($hwndarray)) Then
 		While Not ($hwndarray[0][0] == 0)
 			If ($hwndarray[$hwndarray[0][0]][0] == $hwnd) Then
-				If (_WinAPI_IsHungAppWindow($hwndarray[$hwndarray[0][0]][0])) Then
-					$hwnde = $hwndarray[$hwndarray[0][0]][0]
-					$crash = "The window is frozen/hung."
-				EndIf
+				;If (_WinAPI_IsHungAppWindow($hwndarray[$hwndarray[0][0]][0])) Then
+				;	$hwnde = $hwndarray[$hwndarray[0][0]][0]
+				;	$crash = "The window is frozen/hung."
+				;EndIf
 				$hwndarray[0][0] -= 1
 			Else
 				If ($hwndarray[$hwndarray[0][0]][1] == "#32770") Then
@@ -183,15 +223,8 @@ While 1
 		EndIf
 	EndIf
 	If Not ($crash == "") Then
-		If Not ($hwnde == 0) Then
-			If ($hwnde == $hwnd) Then
-				WinSetState($hwnde, "", @SW_MINIMIZE)
-			Else
-				WinSetState($hwnd, "", @SW_MINIMIZE)
-				WinSetState($hwnde, "", @SW_MINIMIZE)
-			EndIf
-		EndIf
-		ProgressOn("Please, wait", "Please, wait")
+		WinSetOnTop($hwnd, "", 0)
+		WinSetOnTop($hwnde, "", 0)
 		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
 		$crashreportdir = $scriptdir & "\" & $crashreport
 		$dumpfile = $crashreportdir & "\" & $crashreport & ".dmp"
@@ -228,7 +261,21 @@ While 1
 				_error_log($crashmonitorlog, $crashreport, $crash, '_WinAPI_OpenProcess')
 			EndIf
 		EndIf
-		ProgressOff()
+		If Not (MsgBox(262436, "Crashreport", $crash & @CRLF & @CRLF & @CRLF & @CRLF & $text2) == 6) Then
+			WinClose($hwnde)
+			FileMove($crashreportdir & "\" & $crashreport & "_crash.txt", $crashreportdir & "_crash.txt", 9)
+			FileMove($dumpfile, $crashreportdir & ".dmp", 9)
+			DirRemove($crashreportdir, 1)
+			ContinueLoop
+		EndIf
+		If Not ($hwnde == 0) Then
+			If ($hwnde == $hwnd) Then
+				WinSetState($hwnde, "", @SW_MINIMIZE)
+			Else
+				WinSetState($hwnd, "", @SW_MINIMIZE)
+				WinSetState($hwnde, "", @SW_MINIMIZE)
+			EndIf
+		EndIf
 		If ($videorecord) Then
 			$childarray = 0
 			$childarray = _WinAPI_EnumChildProcess($ffpid)
@@ -270,8 +317,7 @@ While 1
 		$Form1 = GUICreate("Report", 641, 481, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE))
 		$Edit1 = GUICtrlCreateEdit("", 0, 60, 640, 360)
 		$Button1 = GUICtrlCreateButton("Done", 283, 436, 75, 25)
-		$Label1 = GUICtrlCreateLabel("ENG:Please tell us what happened in the game a few seconds before the crash", 0, 0, 640, 30, BitOR($SS_CENTER, $SS_CENTERIMAGE))
-		$Label2 = GUICtrlCreateLabel("RUS:Пожалуйста расскажите что происходило в игре за несколько секунд до краша", 0, 30, 640, 30, BitOR($SS_CENTER, $SS_CENTERIMAGE))
+		$Label1 = GUICtrlCreateLabel($text3, 0, 0, 640, 60, BitOR($SS_CENTER, $SS_CENTERIMAGE))
 		GUISetState(@SW_SHOW)
 		GUICtrlSetState($Edit1, $GUI_FOCUS)
 		#EndRegion ### END Koda GUI section ###
@@ -298,6 +344,26 @@ While 1
 			WEnd
 		EndIf
 		If (FileExists($savesdir)) Then
+			DirCreate($crashreportdir & "\SAVEGAME")
+			If (FileExists($savesdir & "\slotdat.ini")) Then
+				If (FileCopy($savesdir & "\slotdat.ini", $crashreportdir & "\SAVEGAME\slotdat.ini", 9)) Then
+					FileSetTime($crashreportdir & "\SAVEGAME\slotdat.ini", FileGetTime($savesdir & "\slotdat.ini", 0, 1))
+				EndIf
+				$slotdatarray = IniReadSection($crashreportdir & "\SAVEGAME\slotdat.ini", "POSITION")
+				If (IsArray($slotdatarray)) Then
+					$slotdatarray = $slotdatarray[1][1] + $slotdatarray[2][1]
+					If ($slotdatarray > 9) Then
+						$slotdatarray = "SLOT" & $slotdatarray
+					Else
+						$slotdatarray = "SLOT0" & $slotdatarray
+					EndIf
+					If (FileExists($savesdir & "\" & $slotdatarray)) Then
+						If (DirCopy($savesdir & "\" & $slotdatarray, $crashreportdir & "\SAVEGAME\" & $slotdatarray, 1)) Then
+							FileSetTime($crashreportdir & "\SAVEGAME\" & $slotdatarray, FileGetTime($savesdir & "\" & $slotdatarray, 0, 1))
+						EndIf
+					EndIf
+				EndIf
+			EndIf
 			$saves = 0
 			$saves = _FileListToArray($savesdir, "slot*", 2, 0)
 			If (IsArray($saves)) Then
@@ -306,11 +372,11 @@ While 1
 					$savestime[$savestime[0]] = FileGetTime($savesdir & "\" & $savestime[$savestime[0]], 0, 1)
 					$savestime[0] -= 1
 				WEnd
-				For $i = 1 To 3
+				For $i = 1 To 10
 					$maxindex = _ArrayMaxIndex($savestime, 1)
 					If Not ($maxindex == 0 Or $maxindex == -1) Then
-						If (DirCopy($savesdir & "\" & $saves[$maxindex], $crashreportdir & "\" & $saves[$maxindex])) Then
-							FileSetTime($crashreportdir & "\" & $saves[$maxindex], $savestime[$maxindex])
+						If (DirCopy($savesdir & "\" & $saves[$maxindex], $crashreportdir & "\SAVEGAME\" & $saves[$maxindex], 1)) Then
+							FileSetTime($crashreportdir & "\SAVEGAME\" & $saves[$maxindex], $savestime[$maxindex])
 						EndIf
 						$savestime[$maxindex] = -1
 					EndIf
@@ -445,7 +511,7 @@ If (IsArray($dirs)) Then
 		If (IsArray($files)) Then
 			While Not ($files[0] == 0)
 				If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
-					$idbutton = MsgBox(262192, "Crashreport is ready", "ENG:Please transfer this archive to the developers of this mod or the developers of sfall" & @CRLF & "RUS:Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall" & @CRLF & @CRLF & $files[$files[0]])
+					$idbutton = MsgBox(262192, "Crashreport is ready", $text4 & @CRLF & @CRLF & $files[$files[0]])
 					If ($idbutton == 1) Then
 						ShellExecute($scriptdir)
 					EndIf
