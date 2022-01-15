@@ -241,6 +241,19 @@ While 1
 			FileWrite($hfile, $crash)
 			FileClose($hfile)
 		EndIf
+		If ($videorecord) Then
+			$childarray = 0
+			$childarray = _WinAPI_EnumChildProcess($ffpid)
+			If (IsArray($childarray)) Then
+				While Not ($childarray[0][0] == 0)
+					If ($childarray[$childarray[0][0]][1] == "ffmpeg.exe") Then
+						ProcessClose($childarray[$childarray[0][0]][0])
+						ExitLoop
+					EndIf
+					$childarray[0][0] -= 1
+				WEnd
+			EndIf
+		EndIf
 		If Not (MsgBox(262436, "Crashreport", "-------------------------------------------------------------------------------" & @CRLF & $crash & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $text2) == 6) Then
 			If Not ($hwnde == 0) Then
 				WinClose($hwnde)
@@ -296,19 +309,8 @@ While 1
 			EndIf
 		EndIf
 		If ($videorecord) Then
-			$childarray = 0
-			$childarray = _WinAPI_EnumChildProcess($ffpid)
-			If (IsArray($childarray)) Then
-				While Not ($childarray[0][0] == 0)
-					If ($childarray[$childarray[0][0]][1] == "ffmpeg.exe") Then
-						ProcessClose($childarray[$childarray[0][0]][0])
-						ExitLoop
-					EndIf
-					$childarray[0][0] -= 1
-				WEnd
-			EndIf
 			$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -sseof -10 -i temp.flv ' & $crashreport & '.flv"', $scriptdir, @SW_HIDE)
-			If ProcessWaitClose($ffpid, 10) Then
+			If (ProcessWaitClose($ffpid, 10)) Then
 				FileMove($crashreportdir & ".flv", $crashreportdir & "\" & $crashreport & ".flv", 9)
 			EndIf
 		EndIf
