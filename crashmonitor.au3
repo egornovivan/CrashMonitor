@@ -37,19 +37,22 @@ $lang = 0
 $lang = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
 If (IsArray($lang)) Then
 	If ($lang[$lang[0]] == "ru-RU") Then
-		$text1 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
-		$text2 = "Хотите подготовить crashreport для его отправки разработчикам?"
+		$text0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
+		$text1 = "Приложение аварийно завершилось с ошибкой:"
+		$text2 = "Хотите сформировать отчет для отправки разработчикам?"
 		$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
 		$text4 = "Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall"
 	Else
-		$text1 = "You have less than 1GB of free disk space, please free up a few gigabytes."
-		$text2 = "Would you like to prepare a crashreport to send to developers?"
+		$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
+		$text1 = "The application crashed with an error:"
+		$text2 = "Want to generate a report to send to developers?"
 		$text3 = "Please tell us what happened in the game a few seconds before the crash"
 		$text4 = "Please transfer this archive to the developers of this mod or the developers of sfall"
 	EndIf
 Else
-	$text1 = "You have less than 1GB of free disk space, please free up a few gigabytes."
-	$text2 = "Would you like to prepare a crashreport to send to developers?"
+	$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
+	$text1 = "The application crashed with an error:"
+	$text2 = "Want to generate a report to send to developers?"
 	$text3 = "Please tell us what happened in the game a few seconds before the crash"
 	$text4 = "Please transfer this archive to the developers of this mod or the developers of sfall"
 EndIf
@@ -59,7 +62,7 @@ EndIf
 $drivespacefree = Round(DriveSpaceFree($scriptdir))
 If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
 	Sleep(2000)
-	MsgBox(262192, "Free Disk Space", $text1)
+	MsgBox(262192, "Free Disk Space", $text0)
 EndIf
 
 $files = 0
@@ -204,10 +207,12 @@ While 1
 				$hwndarray[0][0] -= 1
 			Else
 				If ($hwndarray[$hwndarray[0][0]][1] == "#32770") Then
-					If (WinGetProcess($hwndarray[$hwndarray[0][0]][0]) == $pid) Then
-						$hwnde = $hwndarray[$hwndarray[0][0]][0]
-						$crash = WinGetText($hwnde)
-						ExitLoop
+					If Not (WinGetTitle($hwndarray[$hwndarray[0][0]][0]) == "") Then
+						If (WinGetProcess($hwndarray[$hwndarray[0][0]][0]) == $pid) Then
+							$hwnde = $hwndarray[$hwndarray[0][0]][0]
+							$crash = WinGetText($hwnde)
+							ExitLoop
+						EndIf
 					EndIf
 				EndIf
 				$hwndarray[0][0] -= 1
@@ -254,7 +259,7 @@ While 1
 				WEnd
 			EndIf
 		EndIf
-		If Not (MsgBox(262436, "Crashreport", "-------------------------------------------------------------------------------" & @CRLF & $crash & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $text2) == 6) Then
+		If Not (MsgBox(262436, "Crashreport", $text1 & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & StringRegExpReplace($crash, "^((?s)[OoОо]{1}[KkКк]{1}\R+)", "", 1) & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $text2) == 6) Then
 			If Not ($hwnde == 0) Then
 				WinClose($hwnde)
 				If Not (WinWaitClose($hwnde, "", 5)) Then
