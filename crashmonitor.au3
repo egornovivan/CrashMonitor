@@ -222,8 +222,14 @@ While 1
 		EndIf
 	EndIf
 	If Not ($crash == "") Then
-		WinSetOnTop($hwnd, "", 0)
-		WinSetOnTop($hwnde, "", 0)
+		If Not ($hwnde == 0) Then
+			If ($hwnde == $hwnd) Then
+				WinSetOnTop($hwnde, "", 0)
+			Else
+				WinSetOnTop($hwnd, "", 0)
+				WinSetOnTop($hwnde, "", 0)
+			EndIf
+		EndIf
 		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
 		$crashreportdir = $scriptdir & "\" & $crashreport
 		$dumpfile = $crashreportdir & "\" & $crashreport & ".dmp"
@@ -235,11 +241,26 @@ While 1
 			FileWrite($hfile, $crash)
 			FileClose($hfile)
 		EndIf
-		If Not (MsgBox(262436, "Crashreport", $crash & @CRLF & @CRLF & @CRLF & @CRLF & $text2) == 6) Then
-			WinClose($hwnde)
+		If Not (MsgBox(262436, "Crashreport", "-------------------------------------------------------------------------------" & @CRLF & $crash & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $text2) == 6) Then
+			If Not ($hwnde == 0) Then
+				WinClose($hwnde)
+				If Not (WinWaitClose($hwnde, "", 5)) Then
+					_error_log($crashmonitorlog, $crashreport, $crash, 'WinWaitClose($hwnde, "", 5)')
+					WinKill($hwnde)
+				EndIf
+			EndIf
 			FileMove($crashreportdir & "\" & $crashreport & "_crash.txt", $crashreportdir & "_crash.txt", 9)
 			DirRemove($crashreportdir, 1)
 			ContinueLoop
+		EndIf
+		ProgressOn("Please, wait", "Please, wait")
+		If Not ($hwnde == 0) Then
+			If ($hwnde == $hwnd) Then
+				WinSetState($hwnde, "", @SW_MINIMIZE)
+			Else
+				WinSetState($hwnd, "", @SW_MINIMIZE)
+				WinSetState($hwnde, "", @SW_MINIMIZE)
+			EndIf
 		EndIf
 		If ($dumpprocess And FileExists($crashreportdir) And ProcessExists($pid)) Then
 			$hprocess = 0
@@ -266,12 +287,12 @@ While 1
 				_error_log($crashmonitorlog, $crashreport, $crash, '_WinAPI_OpenProcess')
 			EndIf
 		EndIf
+		ProgressSet(50)
 		If Not ($hwnde == 0) Then
-			If ($hwnde == $hwnd) Then
-				WinSetState($hwnde, "", @SW_MINIMIZE)
-			Else
-				WinSetState($hwnd, "", @SW_MINIMIZE)
-				WinSetState($hwnde, "", @SW_MINIMIZE)
+			WinClose($hwnde)
+			If Not (WinWaitClose($hwnde, "", 5)) Then
+				_error_log($crashmonitorlog, $crashreport, $crash, 'WinWaitClose($hwnde, "", 5)')
+				WinKill($hwnde)
 			EndIf
 		EndIf
 		If ($videorecord) Then
@@ -291,26 +312,7 @@ While 1
 				FileMove($crashreportdir & ".flv", $crashreportdir & "\" & $crashreport & ".flv", 9)
 			EndIf
 		EndIf
-		If Not ($hwnde == 0) Then
-			If ($hwnde == $hwnd) Then
-				WinClose($hwnde)
-				If Not (WinWaitClose($hwnde, "", 5)) Then
-					_error_log($crashmonitorlog, $crashreport, $crash, 'WinWaitClose($hwnde, "", 5)')
-					WinKill($hwnde)
-				EndIf
-			Else
-				WinSetState($hwnde, "", @SW_RESTORE)
-				WinSetOnTop($hwnde, "", 1)
-				WinActivate($hwnde)
-				If Not (WinWaitClose($hwnde, "", 15)) Then
-					WinClose($hwnde)
-					If Not (WinWaitClose($hwnde, "", 5)) Then
-						_error_log($crashmonitorlog, $crashreport, $crash, 'WinWaitClose($hwnde, "", 5)')
-						WinKill($hwnde)
-					EndIf
-				EndIf
-			EndIf
-		EndIf
+		ProgressOff()
 		#Region ### START Koda GUI section ###
 		$Form1 = GUICreate("Report", 641, 481, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE))
 		$Edit1 = GUICtrlCreateEdit("", 0, 60, 640, 360)
