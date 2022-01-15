@@ -63,15 +63,14 @@ If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
 EndIf
 
 $files = 0
-$files = _FileListToArray($scriptdir, "*.dmp", 1, 1)
+$files = _FileListToArray($scriptdir, "*_crash.txt", 1, 1)
 If (IsArray($files)) Then
 	While Not ($files[0] == 0)
-		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.dmp$", 0, 1)) Then
-			If (FileExists($files[$files[0]])) Then
-				FileDelete($files[$files[0]])
-			EndIf
-			If (FileExists(StringRegExpReplace($files[$files[0]], "\.dmp$", "_crash.txt"))) Then
-				FileDelete(StringRegExpReplace($files[$files[0]], "\.dmp$", "_crash.txt"))
+		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\_crash\.txt$", 0, 1)) Then
+			If Not (FileExists(StringRegExpReplace($files[$files[0]], "\_crash\.txt$", ".7z"))) Then
+				If Not (FileExists(StringRegExpReplace($files[$files[0]], "\_crash\.txt$", ""))) Then
+					FileDelete($files[$files[0]])
+				EndIf
 			EndIf
 			$files[0] -= 1
 		Else
@@ -236,6 +235,12 @@ While 1
 			FileWrite($hfile, $crash)
 			FileClose($hfile)
 		EndIf
+		If Not (MsgBox(262436, "Crashreport", $crash & @CRLF & @CRLF & @CRLF & @CRLF & $text2) == 6) Then
+			WinClose($hwnde)
+			FileMove($crashreportdir & "\" & $crashreport & "_crash.txt", $crashreportdir & "_crash.txt", 9)
+			DirRemove($crashreportdir, 1)
+			ContinueLoop
+		EndIf
 		If ($dumpprocess And FileExists($crashreportdir) And ProcessExists($pid)) Then
 			$hprocess = 0
 			$hprocess = _WinAPI_OpenProcess($PROCESS_ALL_ACCESS, 0, $pid, True)
@@ -260,13 +265,6 @@ While 1
 			Else
 				_error_log($crashmonitorlog, $crashreport, $crash, '_WinAPI_OpenProcess')
 			EndIf
-		EndIf
-		If Not (MsgBox(262436, "Crashreport", $crash & @CRLF & @CRLF & @CRLF & @CRLF & $text2) == 6) Then
-			WinClose($hwnde)
-			FileMove($crashreportdir & "\" & $crashreport & "_crash.txt", $crashreportdir & "_crash.txt", 9)
-			FileMove($dumpfile, $crashreportdir & ".dmp", 9)
-			DirRemove($crashreportdir, 1)
-			ContinueLoop
 		EndIf
 		If Not ($hwnde == 0) Then
 			If ($hwnde == $hwnd) Then
