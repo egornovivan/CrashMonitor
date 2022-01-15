@@ -36,7 +36,7 @@ $ffmpegfile = $scriptdir & "\ffmpeg.exe"
 $lang = 0
 $lang = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
 If (IsArray($lang)) Then
-	If ($lang[$lang[0]] == "ru-RU") Then
+	If (StringRegExp($lang[$lang[0]], "^(ru)", 0, 1)) Then
 		$text0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
 		$text1 = "Приложение аварийно завершилось с ошибкой:"
 		$text2 = "Хотите сформировать отчет для отправки разработчикам?"
