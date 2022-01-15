@@ -36,19 +36,28 @@ $ffmpegfile = $scriptdir & "\ffmpeg.exe"
 $lang = 0
 $lang = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
 If (IsArray($lang)) Then
-	If (StringRegExp($lang[$lang[0]], "^(ru)", 0, 1)) Then
-		$text0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
-		$text1 = "Приложение аварийно завершилось с ошибкой:"
-		$text2 = "Хотите сформировать отчет для отправки разработчикам?"
-		$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
-		$text4 = "Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall"
+	While Not ($lang[0] == 0)
+		If (StringRegExp($lang[$lang[0]], "^(ru)", 0, 1)) Then
+			ExitLoop
+		Else
+			$lang[0] -= 1
+		EndIf
+	WEnd
+	If ($lang[0] == 0) Then
+		$lang = "en"
 	Else
-		$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
-		$text1 = "The application crashed with an error:"
-		$text2 = "Want to generate a report to send to developers?"
-		$text3 = "Please tell us what happened in the game a few seconds before the crash"
-		$text4 = "Please transfer this archive to the developers of this mod or the developers of sfall"
+		$lang = "ru"
 	EndIf
+Else
+	$lang = "en"
+EndIf
+
+If ($lang == "ru") Then
+	$text0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
+	$text1 = "Приложение аварийно завершилось с ошибкой:"
+	$text2 = "Хотите сформировать отчет для отправки разработчикам?"
+	$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
+	$text4 = "Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall"
 Else
 	$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
 	$text1 = "The application crashed with an error:"
