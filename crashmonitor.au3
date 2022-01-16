@@ -26,44 +26,46 @@ Opt("TrayIconHide", 1)
 
 
 
-Local $extensions[] = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
+Local $extensionsarray[] = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
 $tempdir = @TempDir & "\crashmonitor"
 $scriptdir = @ScriptDir
 $crashmonitorlog = $scriptdir & "\crashmonitor.log"
 $tempfile = $scriptdir & "\temp.flv"
 $ffmpegfile = $scriptdir & "\ffmpeg.exe"
 
-$lang = 0
-$lang = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
-If (IsArray($lang)) Then
-	While Not ($lang[0] == 0)
-		If (StringRegExp($lang[$lang[0]], "^(ru)", 0, 1)) Then
+$langarray = 0
+$langarray = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
+If (IsArray($langarray)) Then
+	While Not ($langarray[0] == 0)
+		If (StringRegExp($langarray[$langarray[0]], "^(ru)", 0, 1)) Then
 			ExitLoop
 		Else
-			$lang[0] -= 1
+			$langarray[0] -= 1
 		EndIf
 	WEnd
-	If ($lang[0] == 0) Then
-		$lang = "en"
+	If ($langarray[0] == 0) Then
+		$langarray = "en"
 	Else
-		$lang = "ru"
+		$langarray = "ru"
 	EndIf
 Else
-	$lang = "en"
+	$langarray = "en"
 EndIf
 
-If ($lang == "ru") Then
+If ($langarray == "ru") Then
 	$text0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
 	$text1 = "Приложение аварийно завершилось с ошибкой:"
 	$text2 = "Хотите сформировать отчет для отправки разработчикам?"
 	$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
-	$text4 = "Пожалуйста, передайте этот архив разработчикам мода или разработчикам sfall"
+	$text4 = "Пожалуйста передайте этот архив разработчикам "
+	$text5 = "мода"
 Else
 	$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
 	$text1 = "The application crashed with an error:"
 	$text2 = "Want to generate a report to send to developers?"
 	$text3 = "Please tell us what happened in the game a few seconds before the crash"
-	$text4 = "Please transfer this archive to the developers of this mod or the developers of sfall"
+	$text4 = "Please transfer this archive to the developers of "
+	$text5 = "mod"
 EndIf
 
 
@@ -71,22 +73,22 @@ EndIf
 $drivespacefree = Round(DriveSpaceFree($scriptdir))
 If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
 	Sleep(2000)
-	MsgBox(262192, "Free Disk Space", $text0)
+	MsgBox(262192, "DriveSpaceFree", $text0)
 EndIf
 
-$files = 0
-$files = _FileListToArray($scriptdir, "*_crash.txt", 1, 1)
-If (IsArray($files)) Then
-	While Not ($files[0] == 0)
-		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\_crash\.txt$", 0, 1)) Then
-			If Not (FileExists(StringRegExpReplace($files[$files[0]], "\_crash\.txt$", ".7z"))) Then
-				If Not (FileExists(StringRegExpReplace($files[$files[0]], "\_crash\.txt$", ""))) Then
-					FileDelete($files[$files[0]])
+$filesarray = 0
+$filesarray = _FileListToArray($scriptdir, "*_crash.txt", 1, 1)
+If (IsArray($filesarray)) Then
+	While Not ($filesarray[0] == 0)
+		If (StringRegExp($filesarray[$filesarray[0]], "^.*[0-9]{14}\_crash\.txt$", 0, 1)) Then
+			If Not (FileExists(StringRegExpReplace($filesarray[$filesarray[0]], "\_crash\.txt$", ".7z"))) Then
+				If Not (FileExists(StringRegExpReplace($filesarray[$filesarray[0]], "\_crash\.txt$", ""))) Then
+					FileDelete($filesarray[$filesarray[0]])
 				EndIf
 			EndIf
-			$files[0] -= 1
+			$filesarray[0] -= 1
 		Else
-			$files[0] -= 1
+			$filesarray[0] -= 1
 		EndIf
 	WEnd
 EndIf
@@ -348,15 +350,15 @@ While 1
 		WEnd
 		$hfile = FileOpen($crashreportdir & "\" & $crashreport & "_report.txt", 521)
 		If Not ($hfile == -1) Then
-			FileWrite($hfile, "`" & $report & "`")
+			FileWrite($hfile, "`" & @UserName & "@" & @ComputerName & @CRLF & $report & "`")
 			FileClose($hfile)
 		EndIf
-		$files = 0
-		$files = _FileListToArray($crashreportdir, "*.txt", 1, 0)
-		If (IsArray($files)) Then
-			While Not ($files[0] == 0)
-				FileCopy($crashreportdir & "\" & $files[$files[0]], $scriptdir & "\" & $files[$files[0]])
-				$files[0] -= 1
+		$filesarray = 0
+		$filesarray = _FileListToArray($crashreportdir, "*.txt", 1, 0)
+		If (IsArray($filesarray)) Then
+			While Not ($filesarray[0] == 0)
+				FileCopy($crashreportdir & "\" & $filesarray[$filesarray[0]], $scriptdir & "\" & $filesarray[$filesarray[0]], 9)
+				$filesarray[0] -= 1
 			WEnd
 		EndIf
 		If (FileExists($savesdir)) Then
@@ -364,37 +366,37 @@ While 1
 			If (FileExists($savesdir & "\slotdat.ini")) Then
 				If (FileCopy($savesdir & "\slotdat.ini", $crashreportdir & "\SAVEGAME\slotdat.ini", 9)) Then
 					FileSetTime($crashreportdir & "\SAVEGAME\slotdat.ini", FileGetTime($savesdir & "\slotdat.ini", 0, 1))
-				EndIf
-				$slotdatarray = IniReadSection($crashreportdir & "\SAVEGAME\slotdat.ini", "POSITION")
-				If (IsArray($slotdatarray)) Then
-					$slotdatarray = $slotdatarray[1][1] + $slotdatarray[2][1]
-					If ($slotdatarray > 9) Then
-						$slotdatarray = "SLOT" & $slotdatarray
-					Else
-						$slotdatarray = "SLOT0" & $slotdatarray
-					EndIf
-					If (FileExists($savesdir & "\" & $slotdatarray)) Then
-						If (DirCopy($savesdir & "\" & $slotdatarray, $crashreportdir & "\SAVEGAME\" & $slotdatarray, 1)) Then
-							FileSetTime($crashreportdir & "\SAVEGAME\" & $slotdatarray, FileGetTime($savesdir & "\" & $slotdatarray, 0, 1))
+					$slotdatarray = IniReadSection($crashreportdir & "\SAVEGAME\slotdat.ini", "POSITION")
+					If (IsArray($slotdatarray)) Then
+						$slotdatarray = $slotdatarray[1][1] + $slotdatarray[2][1]
+						If ($slotdatarray > 9) Then
+							$slotdatarray = "SLOT" & $slotdatarray
+						Else
+							$slotdatarray = "SLOT0" & $slotdatarray
+						EndIf
+						If (FileExists($savesdir & "\" & $slotdatarray)) Then
+							If (DirCopy($savesdir & "\" & $slotdatarray, $crashreportdir & "\SAVEGAME\" & $slotdatarray, 0)) Then
+								FileSetTime($crashreportdir & "\SAVEGAME\" & $slotdatarray, FileGetTime($savesdir & "\" & $slotdatarray, 0, 1))
+							EndIf
 						EndIf
 					EndIf
 				EndIf
 			EndIf
-			$saves = 0
-			$saves = _FileListToArray($savesdir, "slot*", 2, 0)
-			If (IsArray($saves)) Then
-				$savestime = $saves
-				While Not ($savestime[0] == 0)
-					$savestime[$savestime[0]] = FileGetTime($savesdir & "\" & $savestime[$savestime[0]], 0, 1)
-					$savestime[0] -= 1
+			$savesarray = 0
+			$savesarray = _FileListToArray($savesdir, "slot*", 2, 0)
+			If (IsArray($savesarray)) Then
+				$savesarraytime = $savesarray
+				While Not ($savesarraytime[0] == 0)
+					$savesarraytime[$savesarraytime[0]] = FileGetTime($savesdir & "\" & $savesarraytime[$savesarraytime[0]], 0, 1)
+					$savesarraytime[0] -= 1
 				WEnd
 				For $i = 1 To 10
-					$maxindex = _ArrayMaxIndex($savestime, 1)
+					$maxindex = _ArrayMaxIndex($savesarraytime, 1)
 					If Not ($maxindex == 0 Or $maxindex == -1) Then
-						If (DirCopy($savesdir & "\" & $saves[$maxindex], $crashreportdir & "\SAVEGAME\" & $saves[$maxindex], 1)) Then
-							FileSetTime($crashreportdir & "\SAVEGAME\" & $saves[$maxindex], $savestime[$maxindex])
+						If (DirCopy($savesdir & "\" & $savesarray[$maxindex], $crashreportdir & "\SAVEGAME\" & $savesarray[$maxindex], 1)) Then
+							FileSetTime($crashreportdir & "\SAVEGAME\" & $savesarray[$maxindex], $savesarraytime[$maxindex])
 						EndIf
-						$savestime[$maxindex] = -1
+						$savesarraytime[$maxindex] = -1
 					EndIf
 				Next
 			EndIf
@@ -404,15 +406,15 @@ While 1
 			FileWrite($hfile, @CRLF & $crashreport & @CRLF & $crash & @CRLF)
 			FileClose($hfile)
 		EndIf
-		For $i In $extensions
-			$files = 0
-			$files = _FileListToArray($gamedir, $i, 1, 0)
-			If (IsArray($files)) Then
-				While Not ($files[0] == 0)
-					If (FileCopy($gamedir & "\" & $files[$files[0]], $crashreportdir & "\" & $files[$files[0]])) Then
-						FileSetTime($crashreportdir & "\" & $files[$files[0]], FileGetTime($gamedir & "\" & $files[$files[0]], 0, 1))
+		For $i In $extensionsarray
+			$filesarray = 0
+			$filesarray = _FileListToArray($gamedir, $i, 1, 0)
+			If (IsArray($filesarray)) Then
+				While Not ($filesarray[0] == 0)
+					If (FileCopy($gamedir & "\" & $filesarray[$filesarray[0]], $crashreportdir & "\" & $filesarray[$filesarray[0]])) Then
+						FileSetTime($crashreportdir & "\" & $filesarray[$filesarray[0]], FileGetTime($gamedir & "\" & $filesarray[$filesarray[0]], 0, 1))
 					EndIf
-					$files[0] -= 1
+					$filesarray[0] -= 1
 				WEnd
 			EndIf
 		Next
@@ -445,17 +447,17 @@ If ($videorecord) Then
 	EndIf
 EndIf
 
-$dirs = 0
-$dirs = _FileListToArray($scriptdir, "*", 2, 0)
-If (IsArray($dirs)) Then
-	While Not ($dirs[0] == 0)
-		If (StringRegExp($dirs[$dirs[0]], "^([0-9]{14})$", 0, 1)) Then
+$dirsarray = 0
+$dirsarray = _FileListToArray($scriptdir, "*", 2, 0)
+If (IsArray($dirsarray)) Then
+	While Not ($dirsarray[0] == 0)
+		If (StringRegExp($dirsarray[$dirsarray[0]], "^([0-9]{14})$", 0, 1)) Then
 			ExitLoop
 		Else
-			$dirs[0] -= 1
+			$dirsarray[0] -= 1
 		EndIf
 	WEnd
-	If Not ($dirs[0] == 0) Then
+	If Not ($dirsarray[0] == 0) Then
 		ProgressOn("Please, wait", "Please, wait")
 		DirRemove($tempdir, 1)
 		DirCreate($tempdir)
@@ -464,37 +466,37 @@ If (IsArray($dirs)) Then
 		FileInstall(".\7zxa.dll", $tempdir & "\7zxa.dll", 1)
 		If (FileExists($tempdir & "\7za.exe") And FileExists($tempdir & "\7za.dll") And FileExists($tempdir & "\7zxa.dll")) Then
 			ProgressSet(50)
-			While Not ($dirs[0] == 0)
-				If (StringRegExp($dirs[$dirs[0]], "^([0-9]{14})$", 0, 1)) Then
-					$crashreportdir = $scriptdir & "\" & $dirs[$dirs[0]]
+			While Not ($dirsarray[0] == 0)
+				If (StringRegExp($dirsarray[$dirsarray[0]], "^([0-9]{14})$", 0, 1)) Then
+					$crashreportdir = $scriptdir & "\" & $dirsarray[$dirsarray[0]]
 					If Not (FileExists($crashreportdir & "_crash.txt")) Then
-						If (FileExists($crashreportdir & "\" & $dirs[$dirs[0]] & "_crash.txt")) Then
-							FileCopy($crashreportdir & "\" & $dirs[$dirs[0]] & "_crash.txt", $crashreportdir & "_crash.txt", 9)
+						If (FileExists($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt")) Then
+							FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt", $crashreportdir & "_crash.txt", 9)
 						Else
-							If (FileExists($crashreportdir & "\" & $dirs[$dirs[0]] & ".dmp")) Then
-								$hfile = FileOpen($crashreportdir & "\" & $dirs[$dirs[0]] & "_crash.txt", 521)
+							If (FileExists($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & ".dmp")) Then
+								$hfile = FileOpen($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt", 521)
 								If Not ($hfile == -1) Then
-									FileWrite($hfile, @CRLF & "Unknown" & @CRLF)
+									FileWrite($hfile, @CRLF & "Unknowncrash" & @CRLF)
 									FileClose($hfile)
 								EndIf
-								FileCopy($crashreportdir & "\" & $dirs[$dirs[0]] & "_crash.txt", $crashreportdir & "_crash.txt", 9)
+								FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt", $crashreportdir & "_crash.txt", 9)
 							Else
 								DirRemove($crashreportdir, 1)
-								$dirs[0] -= 1
+								$dirsarray[0] -= 1
 								ContinueLoop
 							EndIf
 						EndIf
 					EndIf
 					If Not (FileExists($crashreportdir & "_report.txt")) Then
-						If (FileExists($crashreportdir & "\" & $dirs[$dirs[0]] & "_report.txt")) Then
-							FileCopy($crashreportdir & "\" & $dirs[$dirs[0]] & "_report.txt", $crashreportdir & "_report.txt", 9)
+						If (FileExists($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt")) Then
+							FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt", $crashreportdir & "_report.txt", 9)
 						Else
-							$hfile = FileOpen($crashreportdir & "\" & $dirs[$dirs[0]] & "_report.txt", 521)
+							$hfile = FileOpen($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt", 521)
 							If Not ($hfile == -1) Then
-								FileWrite($hfile, "``")
+								FileWrite($hfile, "`" & @UserName & "@" & @ComputerName & @CRLF & "`")
 								FileClose($hfile)
 							EndIf
-							FileCopy($crashreportdir & "\" & $dirs[$dirs[0]] & "_report.txt", $crashreportdir & "_report.txt", 9)
+							FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt", $crashreportdir & "_report.txt", 9)
 						EndIf
 					EndIf
 					If (FileExists($crashmonitorlog)) Then
@@ -507,18 +509,18 @@ If (IsArray($dirs)) Then
 						If (FileExists($crashreportdir & ".7z")) Then
 							DirRemove($crashreportdir, 1)
 						Else
-							_error_log($crashmonitorlog, $dirs[$dirs[0]], "7za", 'FileExists($crashreportdir & ".7z")')
+							_error_log($crashmonitorlog, $dirsarray[$dirsarray[0]], "7za", 'FileExists($crashreportdir & ".7z")')
 						EndIf
 					Else
-						_error_log($crashmonitorlog, $dirs[$dirs[0]], "7za", 'RunWait')
+						_error_log($crashmonitorlog, $dirsarray[$dirsarray[0]], "7za", 'RunWait')
 					EndIf
-					$dirs[0] -= 1
+					$dirsarray[0] -= 1
 				Else
-					$dirs[0] -= 1
+					$dirsarray[0] -= 1
 				EndIf
 			WEnd
 		Else
-			_error_log($crashmonitorlog, $dirs[$dirs[0]], "7za", 'FileExists($tempdir & "\7za.exe")')
+			_error_log($crashmonitorlog, $dirsarray[$dirsarray[0]], "7za", 'FileExists($tempdir & "\7za.exe")')
 		EndIf
 		DirRemove($tempdir, 1)
 		ProgressOff()
@@ -527,10 +529,13 @@ If (IsArray($dirs)) Then
 		If (IsArray($files)) Then
 			While Not ($files[0] == 0)
 				If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
-					$idbutton = MsgBox(262192, "Crashreport is ready", $text4 & @CRLF & @CRLF & $files[$files[0]])
-					If ($idbutton == 1) Then
-						ShellExecute($scriptdir)
+					If (FileExists(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))) Then
+						If (StringRegExp(FileRead(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt")), "(Unknowncrash|[0-9A-Fa-f]{8})", 0, 1)) Then
+							$text5 = "sfall"
+						EndIf
 					EndIf
+					MsgBox(262192, "Crashreport is ready", $text4 & $text5 & @CRLF & @CRLF & $files[$files[0]])
+					ShellExecute($scriptdir)
 					ExitLoop
 				Else
 					$files[0] -= 1
