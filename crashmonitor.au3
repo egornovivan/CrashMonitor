@@ -92,14 +92,14 @@ EndIf
 If ($CmdLine[0] > 0) Then
 	If ($CmdLine[1] == 0) Then
 		Opt("WinTitleMatchMode", -1)
-		$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 15)
+		$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 5)
 		Opt("WinTitleMatchMode", 1)
 	Else
 		$hwnd = HWnd(Ptr($CmdLine[1]))
 	EndIf
 Else
 	Opt("WinTitleMatchMode", -1)
-	$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 15)
+	$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 5)
 	Opt("WinTitleMatchMode", 1)
 EndIf
 If ($hwnd == 0) Then
@@ -225,10 +225,6 @@ While 1
 	If (IsArray($hwndarray)) Then
 		While Not ($hwndarray[0][0] == 0)
 			If ($hwndarray[$hwndarray[0][0]][0] == $hwnd) Then
-				;If (_WinAPI_IsHungAppWindow($hwndarray[$hwndarray[0][0]][0])) Then
-				;	$hwnde = $hwndarray[$hwndarray[0][0]][0]
-				;	$crash = "The window is frozen/hung."
-				;EndIf
 				$hwndarray[0][0] -= 1
 			Else
 				If ($hwndarray[$hwndarray[0][0]][1] == "#32770") Then
@@ -253,18 +249,13 @@ While 1
 	EndIf
 	If Not ($crash == "") Then
 		If Not ($hwnde == 0) Then
-			If ($hwnde == $hwnd) Then
-				WinSetOnTop($hwnde, "", 0)
-				If ($fullscreen) Then
-					WinSetState($hwnde, "", @SW_MINIMIZE)
-				EndIf
-			Else
-				WinSetOnTop($hwnd, "", 0)
-				WinSetOnTop($hwnde, "", 0)
-				If ($fullscreen) Then
-					WinSetState($hwnd, "", @SW_MINIMIZE)
-					WinSetState($hwnde, "", @SW_MINIMIZE)
-				EndIf
+			WinSetOnTop($hwnde, "", 0)
+			WinSetState($hwnde, "", @SW_MINIMIZE)
+		EndIf
+		If Not ($hwnd == 0) Then
+			WinSetOnTop($hwnd, "", 0)
+			If ($fullscreen) Then
+				WinSetState($hwnd, "", @SW_MINIMIZE)
 			EndIf
 		EndIf
 		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
@@ -305,12 +296,12 @@ While 1
 		EndIf
 		ProgressOn("Please, wait", "Please, wait")
 		If Not ($hwnde == 0) Then
-			If ($hwnde == $hwnd) Then
-				WinSetState($hwnde, "", @SW_MINIMIZE)
-			Else
-				WinSetState($hwnd, "", @SW_MINIMIZE)
-				WinSetState($hwnde, "", @SW_MINIMIZE)
-			EndIf
+			WinSetOnTop($hwnde, "", 0)
+			WinSetState($hwnde, "", @SW_MINIMIZE)
+		EndIf
+		If Not ($hwnd == 0) Then
+			WinSetOnTop($hwnd, "", 0)
+			WinSetState($hwnd, "", @SW_MINIMIZE)
 		EndIf
 		If ($dumpprocess And FileExists($crashreportdir) And ProcessExists($pid)) Then
 			$hprocess = 0
@@ -369,6 +360,9 @@ While 1
 					ExitLoop
 			EndSwitch
 		WEnd
+		If (ProcessExists($pid)) Then
+			ProcessClose($pid)
+		EndIf
 		$hfile = FileOpen($crashreportdir & "\" & $crashreport & "_report.txt", 521)
 		If Not ($hfile == -1) Then
 			FileWrite($hfile, "`" & @UserName & "@" & @ComputerName & @CRLF & $report & "`")
@@ -439,16 +433,14 @@ While 1
 				WEnd
 			EndIf
 		Next
-		If (($hwnd == 0) And ($hwnde == 0)) Then
-			If (ProcessExists($pid)) Then
-				If (ProcessClose($pid)) Then
-					ExitLoop
-				Else
-					Exit
-				EndIf
-			Else
+		If (ProcessExists($pid)) Then
+			If (ProcessClose($pid)) Then
 				ExitLoop
+			Else
+				Exit
 			EndIf
+		Else
+			ExitLoop
 		EndIf
 	EndIf
 	Sleep(1000)
