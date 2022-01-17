@@ -70,12 +70,6 @@ EndIf
 
 
 
-$drivespacefree = Round(DriveSpaceFree($scriptdir))
-If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
-	Sleep(2000)
-	MsgBox(262192, "DriveSpaceFree", $text0)
-EndIf
-
 $filesarray = 0
 $filesarray = _FileListToArray($scriptdir, "*_crash.txt", 1, 1)
 If (IsArray($filesarray)) Then
@@ -114,6 +108,26 @@ EndIf
 
 If ($CmdLine[0] > 1) Then
 	If ($CmdLine[2] == 0) Then
+		$fullscreen = False
+	Else
+		$fullscreen = True
+	EndIf
+Else
+	$fullscreen = False
+EndIf
+
+$drivespacefree = Round(DriveSpaceFree($scriptdir))
+If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
+	Sleep(2000)
+	WinSetOnTop($hwnd, "", 0)
+	If ($fullscreen) Then
+		WinSetState($hwnd, "", @SW_MINIMIZE)
+	EndIf
+	MsgBox(262192, "DriveSpaceFree", $text0)
+EndIf
+
+If ($CmdLine[0] > 2) Then
+	If ($CmdLine[3] == 0) Then
 		$dumpprocess = False
 	Else
 		$dumpprocess = True
@@ -122,8 +136,8 @@ Else
 	$dumpprocess = False
 EndIf
 
-If ($CmdLine[0] > 2) Then
-	$dumptype = _DWORD(Ptr($CmdLine[3]))
+If ($CmdLine[0] > 3) Then
+	$dumptype = _DWORD(Ptr($CmdLine[4]))
 Else
 	$dumptype = _DWORD(Ptr("0x00000000"))
 EndIf
@@ -241,9 +255,16 @@ While 1
 		If Not ($hwnde == 0) Then
 			If ($hwnde == $hwnd) Then
 				WinSetOnTop($hwnde, "", 0)
+				If ($fullscreen) Then
+					WinSetState($hwnde, "", @SW_MINIMIZE)
+				EndIf
 			Else
 				WinSetOnTop($hwnd, "", 0)
 				WinSetOnTop($hwnde, "", 0)
+				If ($fullscreen) Then
+					WinSetState($hwnd, "", @SW_MINIMIZE)
+					WinSetState($hwnde, "", @SW_MINIMIZE)
+				EndIf
 			EndIf
 		EndIf
 		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
