@@ -216,8 +216,16 @@ While 1
 	EndIf
 	If ($videorecord) Then
 		If Not (ProcessExists($ffpid)) Then
-			_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
-			$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $title & '" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
+			$videorecord = True
+			$title = WinGetTitle($hwnd)
+			If ($title == "") Then
+				$videorecord = False
+			Else
+				$hfile = FileOpen($tempfile, 26)
+				FileClose($hfile)
+				_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
+				$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $title & '" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
+			EndIf
 		EndIf
 	EndIf
 	$hwndarray = 0
