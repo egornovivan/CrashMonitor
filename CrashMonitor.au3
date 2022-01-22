@@ -20,18 +20,29 @@
 #include <WinAPI.au3>
 #include <WindowsConstants.au3>
 #include <WinAPILocale.au3>
+#include <Crypt.au3>
 ; *** End added by AutoIt3Wrapper ***
 Opt("TrayAutoPause", 0)
 Opt("TrayIconHide", 1)
 
 
 
+$ytoken = ""
+$ytokenexpires = "20230115000000"
+$gtoken = ""
+$owner = "egornovivan"
+$repo = "CrashMonitor"
+
+
+
 Local $extensionsarray[] = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
-$tempdir = @TempDir & "\crashmonitor"
+$tempdir = @TempDir & "\CrashMonitor"
 $scriptdir = @ScriptDir
-$crashmonitorlog = $scriptdir & "\crashmonitor.log"
+$crashmonitorlog = $scriptdir & "\CrashMonitor.log"
 $tempfile = $scriptdir & "\temp.flv"
 $ffmpegfile = $scriptdir & "\ffmpeg.exe"
+$crashmonitorreportexe = $scriptdir & "\CrashMonitorReport.exe"
+$crashmonitorreportmd5 = "e12e07279cc7c4ff4b6a6911c421cc14"
 
 $langarray = 0
 $langarray = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
@@ -57,15 +68,17 @@ If ($langarray == "ru") Then
 	$text1 = "Приложение аварийно завершилось с ошибкой:"
 	$text2 = "Хотите сформировать отчет для отправки разработчикам?"
 	$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
-	$text4 = "Пожалуйста передайте этот архив разработчикам "
+	$text4 = "По какой то причине не удалось отправить отчет. Пожалуйста передайте этот архив разработчикам "
 	$text5 = "мода"
+	$text6 = "Отчет готов к отправке. Хотите его отправить разработчикам? (Будет отправлено ≈"
 Else
 	$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
 	$text1 = "The application crashed with an error:"
 	$text2 = "Want to generate a report to send to developers?"
 	$text3 = "Please tell us what happened in the game a few seconds before the crash"
-	$text4 = "Please transfer this archive to the developers of "
+	$text4 = "For some reason, the report could not be sent. Please transfer this archive to the developers of "
 	$text5 = "mod"
+	$text6 = "The report is ready to be sent. Would you like to send it to the developers? (Will be sent ≈"
 EndIf
 
 
@@ -545,25 +558,65 @@ If (IsArray($dirsarray)) Then
 		EndIf
 		DirRemove($tempdir, 1)
 		ProgressOff()
-		$files = 0
-		$files = _FileListToArray($scriptdir, "*.7z", 1, 1)
-		If (IsArray($files)) Then
-			While Not ($files[0] == 0)
-				If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
-					If (FileExists(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))) Then
-						If (StringRegExp(FileRead(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt")), "(Unknowncrash|[0-9A-Fa-f]{8})", 0, 1)) Then
-							$text5 = "sfall"
-						EndIf
-					EndIf
-					MsgBox(262192, "Crashreport is ready", $text4 & $text5 & @CRLF & @CRLF & $files[$files[0]])
-					ShellExecute($scriptdir)
-					ExitLoop
-				Else
-					$files[0] -= 1
-				EndIf
-			WEnd
-		EndIf
 	EndIf
+EndIf
+
+$files = 0
+$files = _FileListToArray($scriptdir, "*.7z", 1, 1)
+If (IsArray($files)) Then
+	While Not ($files[0] == 0)
+		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
+			If ($ytokenexpires > (@YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC)) Then
+				If Not (StringRegExp(@OSVersion, "(WIN_2000)", 0, 1)) Then
+					If (MsgBox(262436, "Crashreport is ready", $text6 & Ceiling(FileGetSize($files[$files[0]]) / 1048576 * $files[0]) & "MB)") == 6) Then
+						ProgressOn("Please, wait", "Please, wait")
+						If Not (FileExists($crashmonitorreportexe)) Then
+							InetGet(StringRegExpReplace(BinaryToString(InetRead("https://api.github.com/repos/" & $owner & "/" & $repo & "/releases/latest"), 4), '(?:(?s).*\"browser_download_url\"[^\"]*\")([^\"]+CrashMonitorReport\.exe)(?:\"(?s).*)', '\1'), $crashmonitorreportexe)
+						EndIf
+						If Not (StringLower(Hex(_Crypt_HashFile($crashmonitorreportexe, $CALG_MD5))) == $crashmonitorreportmd5) Then
+							InetGet(StringRegExpReplace(BinaryToString(InetRead("https://api.github.com/repos/" & $owner & "/" & $repo & "/releases/latest"), 4), '(?:(?s).*\"browser_download_url\"[^\"]*\")([^\"]+CrashMonitorReport\.exe)(?:\"(?s).*)', '\1'), $crashmonitorreportexe)
+						EndIf
+						ProgressSet(50)
+						If (FileExists($crashmonitorreportexe)) Then
+							If (StringLower(Hex(_Crypt_HashFile($crashmonitorreportexe, $CALG_MD5))) == $crashmonitorreportmd5) Then
+								While Not ($files[0] == 0)
+									If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
+										If Not (RunWait('"' & $crashmonitorreportexe & '" --ytoken="' & $ytoken & '" --gtoken="' & $gtoken & '" --file="' & $files[$files[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($files[$files[0]], $CALG_MD5))) & '" --owner="' & $owner & '" --repo="' & $repo & '"', $scriptdir, @SW_HIDE)) Then
+											FileDelete($files[$files[0]])
+											FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))
+											FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_report.txt"))
+											$files[0] -= 1
+										Else
+											ExitLoop
+										EndIf
+									Else
+										$files[0] -= 1
+									EndIf
+								WEnd
+								If ($files[0] == 0) Then
+									ProgressOff()
+									ExitLoop
+								EndIf
+							EndIf
+						EndIf
+						ProgressOff()
+					Else
+						ExitLoop
+					EndIf
+				EndIf
+			EndIf
+			If (FileExists(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))) Then
+				If (StringRegExp(FileRead(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt")), "(Unknowncrash|[0-9A-Fa-f]{8})", 0, 1)) Then
+					$text5 = "sfall"
+				EndIf
+			EndIf
+			MsgBox(262192, "Crashreport is ready", $text4 & $text5 & @CRLF & @CRLF & $files[$files[0]])
+			ShellExecute($scriptdir)
+			ExitLoop
+		Else
+			$files[0] -= 1
+		EndIf
+	WEnd
 EndIf
 
 
