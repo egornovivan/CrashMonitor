@@ -282,6 +282,7 @@ While 1
 		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
 		$crashreportdir = $scriptdir & "\" & $crashreport
 		$dumpfile = $crashreportdir & "\" & $crashreport & ".dmp"
+		$md5file = $crashreportdir & "\" & $crashreport & ".md5"
 		If Not (DirCreate($crashreportdir)) Then
 			_error_log($crashmonitorlog, $crashreport, $crash, 'DirCreate($crashreportdir)')
 		EndIf
@@ -381,6 +382,7 @@ While 1
 					ExitLoop
 			EndSwitch
 		WEnd
+		ProgressOn("Please, wait", "Please, wait")
 		If (ProcessExists($pid)) Then
 			ProcessClose($pid)
 		EndIf
@@ -454,6 +456,20 @@ While 1
 				WEnd
 			EndIf
 		Next
+		ProgressSet(50)
+		$hfile = FileOpen($md5file, 9)
+		If Not ($hfile == -1) Then
+			$filesarray = 0
+			$filesarray = _FileListToArrayRec($gamedir & "\", "*||savegame;crashreport", 1, 1, 1, 1)
+			If (IsArray($filesarray)) Then
+				While Not ($filesarray[0] == 0)
+					FileWriteLine($hfile, StringLower(Hex(_Crypt_HashFile($gamedir & "\" & $filesarray[$filesarray[0]], $CALG_MD5))) & " *" & $filesarray[$filesarray[0]])
+					$filesarray[0] -= 1
+				WEnd
+			EndIf
+			FileClose($hfile)
+		EndIf
+		ProgressOff()
 		If (ProcessExists($pid)) Then
 			If (ProcessClose($pid)) Then
 				ExitLoop
