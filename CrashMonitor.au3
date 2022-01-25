@@ -584,7 +584,7 @@ If (IsArray($files)) Then
 		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
 			If ($ytokenexpires > (@YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC)) Then
 				If Not (StringRegExp(@OSVersion, "(WIN_2000)", 0, 1)) Then
-					If (MsgBox(262436, "Crashreport is ready", $text6 & Ceiling(FileGetSize($files[$files[0]]) / 1048576 * $files[0]) & "MB)") == 6) Then
+					If (MsgBox(262436, "Crashreport is ready", $text6 & Ceiling(FileGetSize($files[$files[0]]) / 1048576) & "MB)" & @CRLF & @CRLF & $files[$files[0]]) == 6) Then
 						ProgressOn("Please, wait", "Please, wait")
 						If Not (FileExists($crashmonitorreportexe)) Then
 							InetGet(StringRegExpReplace(BinaryToString(InetRead("https://api.github.com/repos/" & $owner & "/" & $repo & "/releases/latest"), 4), '(?:(?s).*\"browser_download_url\"[^\"]*\")([^\"]+CrashMonitorReport\.exe)(?:\"(?s).*)', '\1'), $crashmonitorreportexe)
@@ -595,23 +595,13 @@ If (IsArray($files)) Then
 						ProgressSet(50)
 						If (FileExists($crashmonitorreportexe)) Then
 							If (StringLower(Hex(_Crypt_HashFile($crashmonitorreportexe, $CALG_MD5))) == $crashmonitorreportmd5) Then
-								While Not ($files[0] == 0)
-									If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
-										If Not (RunWait('"' & $crashmonitorreportexe & '" --ytoken="' & $ytoken & '" --gtoken="' & $gtoken & '" --file="' & $files[$files[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($files[$files[0]], $CALG_MD5))) & '" --owner="' & $owner & '" --repo="' & $repo & '"', $scriptdir, @SW_HIDE)) Then
-											FileDelete($files[$files[0]])
-											FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))
-											FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_report.txt"))
-											$files[0] -= 1
-										Else
-											ExitLoop
-										EndIf
-									Else
-										$files[0] -= 1
-									EndIf
-								WEnd
-								If ($files[0] == 0) Then
+								If Not (RunWait('"' & $crashmonitorreportexe & '" --ytoken="' & $ytoken & '" --gtoken="' & $gtoken & '" --file="' & $files[$files[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($files[$files[0]], $CALG_MD5))) & '" --owner="' & $owner & '" --repo="' & $repo & '"', $scriptdir, @SW_HIDE)) Then
+									FileDelete($files[$files[0]])
+									FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))
+									FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_report.txt"))
+									$files[0] -= 1
 									ProgressOff()
-									ExitLoop
+									ContinueLoop
 								EndIf
 							EndIf
 						EndIf
