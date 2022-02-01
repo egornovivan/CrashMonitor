@@ -36,7 +36,7 @@ Const $sYandexTokenExpires = "20230115000000"
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.3"
+Const $sVerCrashMonitorReportExe = "v2.4"
 Const $sMd5CrashMonitorReportExe = "780645f39cb512b01087539365635d1c"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
@@ -61,7 +61,7 @@ Global $iPIDFfmpegExe = 0, $iDriveSpaceFree = 0, $hWndCrash = 0
 Global $sTextCrash = "", $sTextReport = "", $sTitleGame = ""
 Global $sTimestamp = "", $sDirCrashReport = "", $sDirCrashReportSaves = "", $sFileCrash = "", $sFileReport = "", $sFileDump = "", $sFileMd5 = ""
 Global $hOpenProcess = 0, $hCreateFile = 0, $hForm1 = 0, $idEdit1 = 0, $idButton1 = 0, $idLabel1 = 0, $nMsg = 0
-Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aMiniDump = 0, $aIniReadSection = 0, $asFileGetTime = 0
+Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aEnumChildProcess = 0, $aMiniDump = 0, $aIniReadSection = 0, $asFileGetTime = 0
 
 Global $sText0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
 Global $sText1 = "The application crashed with an error:"
@@ -195,7 +195,7 @@ If (FileExists($sFileFfmpegExe)) Then
 		FileClose($hFileOpen)
 		$hFileOpen = -1
 		FileSetAttrib($sFileTempFlv, "+T")
-		$iPIDFfmpegExe = Run('""' & $sFileFfmpegExe & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $sTitleGame & '" -f flv - > temp.flv"', $sDirScript, @SW_HIDE)
+		$iPIDFfmpegExe = Run('cmd /c ""' & $sFileFfmpegExe & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $sTitleGame & '" -f flv - > temp.flv"', $sDirScript, @SW_HIDE)
 	EndIf
 	$sTitleGame = ""
 Else
@@ -237,7 +237,7 @@ While 1
 				FileClose($hFileOpen)
 				$hFileOpen = -1
 				FileSetAttrib($sFileTempFlv, "+T")
-				$iPIDFfmpegExe = Run('""' & $sFileFfmpegExe & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $sTitleGame & '" -f flv - > temp.flv"', $sDirScript, @SW_HIDE)
+				$iPIDFfmpegExe = Run('cmd /c ""' & $sFileFfmpegExe & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $sTitleGame & '" -f flv - > temp.flv"', $sDirScript, @SW_HIDE)
 			EndIf
 			$sTitleGame = ""
 		EndIf
@@ -293,11 +293,19 @@ While 1
 		EndIf
 		$hFileOpen = -1
 		If ($bWndGameCapture) Then
-			If (ProcessExists($iPIDFfmpegExe)) Then
-				If (ProcessClose($iPIDFfmpegExe)) Then
-					$iPIDFfmpegExe = 0
-				EndIf
+			$aEnumChildProcess = _WinAPI_EnumChildProcess($iPIDFfmpegExe)
+			If (IsArray($aEnumChildProcess)) Then
+				While Not ($aEnumChildProcess[0][0] == 0)
+					If ($aEnumChildProcess[$aEnumChildProcess[0][0]][1] == "ffmpeg.exe") Then
+						If (ProcessClose($aEnumChildProcess[$aEnumChildProcess[0][0]][0])) Then
+							$iPIDFfmpegExe = 0
+						EndIf
+						ExitLoop
+					EndIf
+					$aEnumChildProcess[0][0] -= 1
+				WEnd
 			EndIf
+			$aEnumChildProcess = 0
 		EndIf
 		If Not (MsgBox($MB_TOPMOST + $MB_DEFBUTTON2 + $MB_ICONQUESTION + $MB_YESNO, "Crash", $sText1 & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & StringRegExpReplace($sTextCrash, "^((?s)[OoОо]{1}[KkКк]{1}\R+)", "", 1) & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $sText2) == $IDYES) Then
 			If Not ($hWndCrash == 0) Then
@@ -359,7 +367,7 @@ While 1
 			EndIf
 		EndIf
 		If ($bWndGameCapture) Then
-			$iPIDFfmpegExe = Run('""' & $sFileFfmpegExe & '" -sseof -10 -i temp.flv ' & $sTimestamp & '.flv"', $sDirScript, @SW_HIDE)
+			$iPIDFfmpegExe = Run('cmd /c ""' & $sFileFfmpegExe & '" -sseof -10 -i temp.flv ' & $sTimestamp & '.flv"', $sDirScript, @SW_HIDE)
 			If (ProcessWaitClose($iPIDFfmpegExe, 10)) Then
 				FileMove($sDirCrashReport & ".flv", $sDirCrashReport & "\" & $sTimestamp & ".flv", $FC_CREATEPATH + $FC_OVERWRITE)
 			EndIf
@@ -497,11 +505,19 @@ WEnd
 
 
 If ($bWndGameCapture) Then
-	If (ProcessExists($iPIDFfmpegExe)) Then
-		If (ProcessClose($iPIDFfmpegExe)) Then
-			$iPIDFfmpegExe = 0
-		EndIf
+	$aEnumChildProcess = _WinAPI_EnumChildProcess($iPIDFfmpegExe)
+	If (IsArray($aEnumChildProcess)) Then
+		While Not ($aEnumChildProcess[0][0] == 0)
+			If ($aEnumChildProcess[$aEnumChildProcess[0][0]][1] == "ffmpeg.exe") Then
+				If (ProcessClose($aEnumChildProcess[$aEnumChildProcess[0][0]][0])) Then
+					$iPIDFfmpegExe = 0
+				EndIf
+				ExitLoop
+			EndIf
+			$aEnumChildProcess[0][0] -= 1
+		WEnd
 	EndIf
+	$aEnumChildProcess = 0
 EndIf
 
 $asFileListToArray = _FileListToArray($sDirScript, "*", $FLTA_FOLDERS, False)
