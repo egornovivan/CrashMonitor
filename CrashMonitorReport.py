@@ -103,25 +103,25 @@ if os.path.isfile(ifile):
     if os.path.isfile(re.sub(r'\.7z$', r'_crash.txt', ifile)):
         if os.path.isfile(re.sub(r'\.7z$', r'_report.txt', ifile)):
             disk = yadisk.YaDisk(token=iytoken)
-            disk.upload(ifile, r'app:/%s' % re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile), overwrite=True)
-            disk.publish(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile))
-            iurl = disk.get_meta(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile)).public_url
-            if re.search(r'^https', iurl) and disk.get_meta(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile)).md5.lower() == imd5.lower():
+            disk.upload(ifile, r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile), overwrite=True)
+            disk.publish(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile))
+            iurl = disk.get_meta(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile)).public_url
+            if re.search(r'^https', iurl) and disk.get_meta(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile)).md5.lower() == imd5.lower():
                 with open(re.sub(r'\.7z$', r'_crash.txt', ifile)) as file:
                     ititle = re.sub(r'^(.{1,200})(?:.*)$', r'\1', max(file.readlines(), key=len))
                 with open(re.sub(r'\.7z$', r'_report.txt', ifile)) as file:
-                    ibody = '`%s`\n[%s](%s)' % (file.read(), re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile), iurl)
+                    ibody = '`%s`\n[%s](%s)' % (file.read(), re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile), iurl)
                 iissue = -1
                 iissue = check_issue(iowner, irepo, ititle)
                 if iissue == -1:
-                    disk.remove(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile))
+                    disk.remove(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile))
                     exit(4)
                 elif iissue == 0:
                     iissue = create_issue(iowner, irepo, ititle, igtoken)
                 if create_comment(iowner, irepo, iissue, ibody, igtoken):
                     exit(0)
             else:
-                disk.remove(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{14}\.7z)$', r'\1', ifile))
+                disk.remove(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile))
                 exit(3)
 
 

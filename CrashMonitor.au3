@@ -1,3 +1,4 @@
+#NoTrayIcon
 #Region ;**** Directives created by AutoIt3Wrapper_GUI ****
 #AutoIt3Wrapper_Icon=CrashMonitor.ico
 #AutoIt3Wrapper_Compression=4
@@ -5,601 +6,599 @@
 #AutoIt3Wrapper_Res_SaveSource=y
 #AutoIt3Wrapper_Add_Constants=n
 #AutoIt3Wrapper_AU3Check_Stop_OnWarning=y
+#AutoIt3Wrapper_AU3Check_Parameters=-d -w 1 -w 2 -w 3 -w 4 -w 5 -w 6
 #AutoIt3Wrapper_Run_Tidy=y
 #AutoIt3Wrapper_Run_Au3Stripper=y
+#Au3Stripper_Parameters=/pe /so /sf /sv /rm
 #EndRegion ;**** Directives created by AutoIt3Wrapper_GUI ****
+AutoItSetOption("MustDeclareVars", 1)
+AutoItSetOption("TrayAutoPause", 0)
+AutoItSetOption("TrayIconHide", 1)
 ; *** Start added by AutoIt3Wrapper ***
-#include <ButtonConstants.au3>
-#include <EditConstants.au3>
-#include <File.au3>
-#include <GUIConstantsEx.au3>
-#include <Memory.au3>
-#include <Process.au3>
+#include <APILocaleConstants.au3>
+#include <FileConstants.au3>
+#include <AutoItConstants.au3>
+#include <MsgBoxConstants.au3>
 #include <ProcessConstants.au3>
-#include <StaticConstants.au3>
-#include <WinAPI.au3>
 #include <WindowsConstants.au3>
-#include <WinAPILocale.au3>
+#include <StaticConstants.au3>
+#include <GUIConstantsEx.au3>
 #include <Crypt.au3>
+#include <WinAPILocale.au3>
+#include <File.au3>
+#include <WinAPIProc.au3>
 ; *** End added by AutoIt3Wrapper ***
-Opt("TrayAutoPause", 0)
-Opt("TrayIconHide", 1)
 
 
 
-$ytoken = ""
-$ytokenexpires = "20230115000000"
-$gtoken = ""
-$owner = "egornovivan"
-$repo = "CrashMonitor"
+Const $sYandexToken = ""
+Const $sYandexTokenExpires = "20230115000000"
+Const $sGitHubToken = ""
+Const $sGitHubOwner = "egornovivan"
+Const $sGitHubRepo = "CrashMonitor"
+Const $sVerCrashMonitorReportExe = "v2.3"
+Const $sMd5CrashMonitorReportExe = "780645f39cb512b01087539365635d1c"
+Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
+Const $asFileExtensions = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
+Const $sDirTemp = @TempDir & "\CrashMonitor"
+Const $sDirScript = @ScriptDir
+Const $sFile7zaExe = $sDirTemp & "\7za.exe"
+Const $sFile7zaDll = $sDirTemp & "\7za.dll"
+Const $sFile7zxaDll = $sDirTemp & "\7zxa.dll"
+Const $sFileCrashMonitorLog = $sDirScript & "\CrashMonitor.log"
+Const $sFileTempFlv = $sDirScript & "\temp.flv"
+Const $sFileFfmpegExe = $sDirScript & "\ffmpeg.exe"
+Const $sFileCrashMonitorReportExe = $sDirScript & "\CrashMonitorReport.exe"
 
+Global $hWndGame = 0
+Global $bWndGameFullscreen = False
+Global $bMiniDump = False
+Global $tDumpType = DllStructCreate("DWORD")
+Global $bWndGameCapture = False
+Global $iPIDGame = -1, $hFileOpen = -1
+Global $iPIDFfmpegExe = 0, $iDriveSpaceFree = 0, $hWndCrash = 0
+Global $sTextCrash = "", $sTextReport = "", $sTitleGame = ""
+Global $sTimestamp = "", $sDirCrashReport = "", $sDirCrashReportSaves = "", $sFileCrash = "", $sFileReport = "", $sFileDump = "", $sFileMd5 = ""
+Global $hOpenProcess = 0, $hCreateFile = 0, $hForm1 = 0, $idEdit1 = 0, $idButton1 = 0, $idLabel1 = 0, $nMsg = 0
+Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aMiniDump = 0, $aIniReadSection = 0, $asFileGetTime = 0
 
-Local $extensionsarray[] = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
-$tempdir = @TempDir & "\CrashMonitor"
-$scriptdir = @ScriptDir
-$crashmonitorlog = $scriptdir & "\CrashMonitor.log"
-$tempfile = $scriptdir & "\temp.flv"
-$ffmpegfile = $scriptdir & "\ffmpeg.exe"
-$crashmonitorreportexe = $scriptdir & "\CrashMonitorReport.exe"
-$crashmonitorreportmd5 = "e12e07279cc7c4ff4b6a6911c421cc14"
+Global $sText0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
+Global $sText1 = "The application crashed with an error:"
+Global $sText2 = "Want to generate a report to send to developers?"
+Global $sText3 = "Please tell us what happened in the game a few seconds before the crash"
+Global $sText4 = "For some reason, the report could not be sent. Please transfer this archive to the developers of "
+Global $sText5 = "mod"
+Global $sText6 = "The report is ready to be sent. Would you like to send it to the developers? (Will be sent ≈"
 
-$langarray = 0
-$langarray = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
-If (IsArray($langarray)) Then
-	While Not ($langarray[0] == 0)
-		If (StringRegExp($langarray[$langarray[0]], "^(ru)", 0, 1)) Then
+$asEnumUILanguages = _WinAPI_EnumUILanguages($MUI_LANGUAGE_NAME)
+If (IsArray($asEnumUILanguages)) Then
+	While Not ($asEnumUILanguages[0] == 0)
+		If (StringRegExp($asEnumUILanguages[$asEnumUILanguages[0]], "^ru")) Then
+			$sText0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
+			$sText1 = "Приложение аварийно завершилось с ошибкой:"
+			$sText2 = "Хотите сформировать отчет для отправки разработчикам?"
+			$sText3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
+			$sText4 = "По какой то причине не удалось отправить отчет. Пожалуйста передайте этот архив разработчикам "
+			$sText5 = "мода"
+			$sText6 = "Отчет готов к отправке. Хотите его отправить разработчикам? (Будет отправлено ≈"
 			ExitLoop
-		Else
-			$langarray[0] -= 1
 		EndIf
+		$asEnumUILanguages[0] -= 1
 	WEnd
-	If ($langarray[0] == 0) Then
-		$langarray = "en"
-	Else
-		$langarray = "ru"
-	EndIf
-Else
-	$langarray = "en"
 EndIf
+$asEnumUILanguages = 0
 
-If ($langarray == "ru") Then
-	$text0 = "У вас осталось менее 1GB свободного места на диске, пожалуйста освободите несколько гигабайт."
-	$text1 = "Приложение аварийно завершилось с ошибкой:"
-	$text2 = "Хотите сформировать отчет для отправки разработчикам?"
-	$text3 = "Пожалуйста расскажите что происходило в игре за несколько секунд до краша"
-	$text4 = "По какой то причине не удалось отправить отчет. Пожалуйста передайте этот архив разработчикам "
-	$text5 = "мода"
-	$text6 = "Отчет готов к отправке. Хотите его отправить разработчикам? (Будет отправлено ≈"
-Else
-	$text0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
-	$text1 = "The application crashed with an error:"
-	$text2 = "Want to generate a report to send to developers?"
-	$text3 = "Please tell us what happened in the game a few seconds before the crash"
-	$text4 = "For some reason, the report could not be sent. Please transfer this archive to the developers of "
-	$text5 = "mod"
-	$text6 = "The report is ready to be sent. Would you like to send it to the developers? (Will be sent ≈"
-EndIf
-
-
-
-$filesarray = 0
-$filesarray = _FileListToArray($scriptdir, "*_crash.txt", 1, 1)
-If (IsArray($filesarray)) Then
-	While Not ($filesarray[0] == 0)
-		If (StringRegExp($filesarray[$filesarray[0]], "^.*[0-9]{14}\_crash\.txt$", 0, 1)) Then
-			If Not (FileExists(StringRegExpReplace($filesarray[$filesarray[0]], "\_crash\.txt$", ".7z"))) Then
-				If Not (FileExists(StringRegExpReplace($filesarray[$filesarray[0]], "\_crash\.txt$", ""))) Then
-					FileDelete($filesarray[$filesarray[0]])
+$asFileListToArray = _FileListToArray($sDirScript, "*_crash.txt", $FLTA_FILES, True)
+If (IsArray($asFileListToArray)) Then
+	While Not ($asFileListToArray[0] == 0)
+		If (StringRegExp($asFileListToArray[$asFileListToArray[0]], "^.*[0-9]{8}\_[0-9]{6}\_crash\.txt$")) Then
+			If Not (FileExists(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\_crash\.txt$", ".7z"))) Then
+				If Not (FileExists(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\_crash\.txt$", ""))) Then
+					FileDelete($asFileListToArray[$asFileListToArray[0]])
 				EndIf
 			EndIf
-			$filesarray[0] -= 1
-		Else
-			$filesarray[0] -= 1
 		EndIf
+		$asFileListToArray[0] -= 1
 	WEnd
 EndIf
-
-
+$asFileListToArray = 0
 
 If ($CmdLine[0] > 0) Then
 	If ($CmdLine[1] == 0) Then
-		Opt("WinTitleMatchMode", -1)
-		$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 5)
-		Opt("WinTitleMatchMode", 1)
+		$hWndGame = WinWait("[CLASS:GNW95 Class]", "", 5)
 	Else
-		$hwnd = HWnd(Ptr($CmdLine[1]))
+		$hWndGame = HWnd(Ptr($CmdLine[1]))
 	EndIf
 Else
-	Opt("WinTitleMatchMode", -1)
-	$hwnd = WinWait("[TITLE:Fallout II; CLASS:GNW95 Class]", "", 5)
-	Opt("WinTitleMatchMode", 1)
+	$hWndGame = WinWait("[CLASS:GNW95 Class]", "", 5)
 EndIf
-If ($hwnd == 0) Then
+If ($hWndGame == 0) Then
 	Exit
 EndIf
 
 If ($CmdLine[0] > 1) Then
 	If ($CmdLine[2] == 0) Then
-		$fullscreen = False
+		$bWndGameFullscreen = False
 	Else
-		$fullscreen = True
+		$bWndGameFullscreen = True
 	EndIf
 Else
-	$fullscreen = False
-EndIf
-
-$drivespacefree = Round(DriveSpaceFree($scriptdir))
-If (($drivespacefree < 1024) And ($drivespacefree > 0)) Then
-	Sleep(2000)
-	WinSetOnTop($hwnd, "", 0)
-	If ($fullscreen) Then
-		WinSetState($hwnd, "", @SW_MINIMIZE)
-	EndIf
-	MsgBox(262192, "DriveSpaceFree", $text0)
+	$bWndGameFullscreen = False
 EndIf
 
 If ($CmdLine[0] > 2) Then
 	If ($CmdLine[3] == 0) Then
-		$dumpprocess = False
+		$bMiniDump = False
 	Else
-		$dumpprocess = True
+		$bMiniDump = True
 	EndIf
 Else
-	$dumpprocess = False
+	$bMiniDump = False
 EndIf
 
 If ($CmdLine[0] > 3) Then
-	$dumptype = _DWORD(Ptr($CmdLine[4]))
+	DllStructSetData($tDumpType, 1, Ptr($CmdLine[4]))
 Else
-	$dumptype = _DWORD(Ptr("0x00000000"))
+	DllStructSetData($tDumpType, 1, Ptr("0x00000000"))
 EndIf
 
-If (FileExists($ffmpegfile)) Then
-	$videorecord = True
-	$title = WinGetTitle($hwnd)
-	If ($title == "") Then
-		$videorecord = False
-	Else
-		$hfile = FileOpen($tempfile, 26)
-		FileClose($hfile)
-		_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
-		$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $title & '" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
-	EndIf
-Else
-	$videorecord = False
-EndIf
-
-$pid = WinGetProcess($hwnd)
-If ($pid == -1) Then
+$iPIDGame = WinGetProcess($hWndGame)
+If ($iPIDGame == -1) Then
 	Exit
 EndIf
-$exe = 0
-$processlist = 0
-$processlist = ProcessList()
-If (IsArray($processlist)) Then
-	While Not ($processlist[0][0] == 0)
-		If ($processlist[$processlist[0][0]][1] == $pid) Then
-			$exe = $processlist[$processlist[0][0]][0]
+
+$aProcessList = ProcessList()
+If (IsArray($aProcessList)) Then
+	While Not ($aProcessList[0][0] == 0)
+		If ($aProcessList[$aProcessList[0][0]][1] == $iPIDGame) Then
 			ExitLoop
 		EndIf
-		$processlist[0][0] -= 1
+		$aProcessList[0][0] -= 1
 	WEnd
+	Const $sFileGame = StringRegExpReplace($sDirScript, "^(.*)(?:[\/\\]{1}[^\/\\]*)$", "\1") & "\" & $aProcessList[$aProcessList[0][0]][0]
 Else
 	Exit
 EndIf
-If ($exe == 0) Then
+$aProcessList = 0
+
+If (FileExists($sFileGame)) Then
+	Const $sDirGame = StringRegExpReplace($sFileGame, "^(.*)(?:[\/\\]{1}[^\/\\]*)$", "\1")
+Else
 	Exit
 EndIf
 
-$gamedir1 = _WinAPI_GetProcessFileName($pid)
-$gamedir2 = StringRegExpReplace($scriptdir, "^(.*)(?:[\/\\]{1}[^\/\\]*)$", "\1") & "\" & $exe
-If ($gamedir1 == $gamedir2) Then
-	If (FileExists($gamedir1) And FileExists($gamedir2)) Then
-		$gamedir = StringRegExpReplace($scriptdir, "^(.*)(?:[\/\\]{1}[^\/\\]*)$", "\1")
-	Else
-		Exit
-	EndIf
-ElseIf (FileExists($gamedir2)) Then
-	$gamedir = StringRegExpReplace($gamedir2, "^(.*)(?:[\/\\]{1}[^\/\\]*)$", "\1")
-ElseIf (FileExists($gamedir1)) Then
-	$gamedir = StringRegExpReplace($gamedir1, "^(.*)(?:[\/\\]{1}[^\/\\]*)$", "\1")
+If (FileExists($sDirGame)) Then
+	Const $sDirSaves = $sDirGame & "\data\savegame"
 Else
 	Exit
 EndIf
-$savesdir = $gamedir & "\data\savegame"
+
+$iDriveSpaceFree = Round(DriveSpaceFree($sDirScript))
+If ($iDriveSpaceFree < 1024 And $iDriveSpaceFree > 0) Then
+	Sleep(2000)
+	WinSetOnTop($hWndGame, "", $WINDOWS_NOONTOP)
+	If ($bWndGameFullscreen) Then
+		WinSetState($hWndGame, "", @SW_MINIMIZE)
+	EndIf
+	MsgBox($MB_TOPMOST + $MB_ICONWARNING, "DriveSpaceFree", $sText0)
+EndIf
+$iDriveSpaceFree = 0
+
+If (FileExists($sFileFfmpegExe)) Then
+	$bWndGameCapture = True
+	$sTitleGame = WinGetTitle($hWndGame)
+	If ($sTitleGame == "") Then
+		$bWndGameCapture = False
+	Else
+		$hFileOpen = FileOpen($sFileTempFlv, $FO_BINARY + $FO_CREATEPATH + $FO_OVERWRITE)
+		FileClose($hFileOpen)
+		$hFileOpen = -1
+		FileSetAttrib($sFileTempFlv, "+T")
+		$iPIDFfmpegExe = Run('""' & $sFileFfmpegExe & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $sTitleGame & '" -f flv - > temp.flv"', $sDirScript, @SW_HIDE)
+	EndIf
+	$sTitleGame = ""
+Else
+	$bWndGameCapture = False
+EndIf
+
+
 
 While 1
-	If (WinExists($hwnd)) Then
-		$hwnde = 0
-		$crash = ""
+	If (WinExists($hWndGame)) Then
+		$hWndCrash = 0
+		$sTextCrash = ""
 	Else
-		If (WinExists($hwnd)) Then
-			$hwnde = 0
-			$crash = ""
+		If (WinExists($hWndGame)) Then
+			$hWndCrash = 0
+			$sTextCrash = ""
 		Else
-			If (ProcessExists($pid)) Then
-				$hwnd = 0
-				$hwnde = 0
-				$crash = "The window is gone, but the process still exists."
+			If (ProcessExists($iPIDGame)) Then
+				$hWndGame = 0
+				$hWndCrash = 0
+				$sTextCrash = "The window is gone, but the process still exists."
 			Else
+				$hWndGame = 0
+				$hWndCrash = 0
+				$sTextCrash = ""
+				$iPIDGame = -1
 				ExitLoop
 			EndIf
 		EndIf
 	EndIf
-	If ($videorecord) Then
-		If Not (ProcessExists($ffpid)) Then
-			$videorecord = True
-			$title = WinGetTitle($hwnd)
-			If ($title == "") Then
-				$videorecord = False
+	If ($bWndGameCapture) Then
+		If Not (ProcessExists($iPIDFfmpegExe)) Then
+			$bWndGameCapture = True
+			$sTitleGame = WinGetTitle($hWndGame)
+			If ($sTitleGame == "") Then
+				$bWndGameCapture = False
 			Else
-				$hfile = FileOpen($tempfile, 26)
-				FileClose($hfile)
-				_WinAPI_SetFileAttributes($tempfile, $FILE_ATTRIBUTE_TEMPORARY)
-				$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $title & '" -f flv - > temp.flv"', $scriptdir, @SW_HIDE)
+				$hFileOpen = FileOpen($sFileTempFlv, $FO_BINARY + $FO_CREATEPATH + $FO_OVERWRITE)
+				FileClose($hFileOpen)
+				$hFileOpen = -1
+				FileSetAttrib($sFileTempFlv, "+T")
+				$iPIDFfmpegExe = Run('""' & $sFileFfmpegExe & '" -y -f gdigrab -framerate 30 -t 300 -i title="' & $sTitleGame & '" -f flv - > temp.flv"', $sDirScript, @SW_HIDE)
+			EndIf
+			$sTitleGame = ""
+		EndIf
+	EndIf
+	$aEnumProcessWindows = _WinAPI_EnumProcessWindows($iPIDGame, True)
+	If (IsArray($aEnumProcessWindows)) Then
+		While Not ($aEnumProcessWindows[0][0] == 0)
+			If ($aEnumProcessWindows[$aEnumProcessWindows[0][0]][1] == "#32770") Then
+				If Not (WinGetTitle($aEnumProcessWindows[$aEnumProcessWindows[0][0]][0]) == "") Then
+					If (WinGetProcess($aEnumProcessWindows[$aEnumProcessWindows[0][0]][0]) == $iPIDGame) Then
+						$hWndCrash = $aEnumProcessWindows[$aEnumProcessWindows[0][0]][0]
+						$sTextCrash = WinGetText($hWndCrash)
+						ExitLoop
+					EndIf
+				EndIf
+			EndIf
+			$aEnumProcessWindows[0][0] -= 1
+		WEnd
+	EndIf
+	$aEnumProcessWindows = 0
+	If ($hWndGame == 0) Then
+		If ($hWndCrash == 0) Then
+			If (ProcessWaitClose($iPIDGame, 5)) Then
+				$sTextCrash = ""
+				$iPIDGame = -1
+				ExitLoop
 			EndIf
 		EndIf
 	EndIf
-	$hwndarray = 0
-	$hwndarray = _WinAPI_EnumProcessWindows($pid, True)
-	If (IsArray($hwndarray)) Then
-		While Not ($hwndarray[0][0] == 0)
-			If ($hwndarray[$hwndarray[0][0]][0] == $hwnd) Then
-				$hwndarray[0][0] -= 1
-			Else
-				If ($hwndarray[$hwndarray[0][0]][1] == "#32770") Then
-					If Not (WinGetTitle($hwndarray[$hwndarray[0][0]][0]) == "") Then
-						If (WinGetProcess($hwndarray[$hwndarray[0][0]][0]) == $pid) Then
-							$hwnde = $hwndarray[$hwndarray[0][0]][0]
-							$crash = WinGetText($hwnde)
-							ExitLoop
+	If Not ($sTextCrash == "") Then
+		If Not ($hWndCrash == 0) Then
+			WinSetOnTop($hWndCrash, "", $WINDOWS_NOONTOP)
+			WinSetState($hWndCrash, "", @SW_MINIMIZE)
+		EndIf
+		If Not ($hWndGame == 0) Then
+			WinSetOnTop($hWndGame, "", $WINDOWS_NOONTOP)
+			If ($bWndGameFullscreen) Then
+				WinSetState($hWndGame, "", @SW_MINIMIZE)
+			EndIf
+		EndIf
+		$sTimestamp = @YEAR & @MON & @MDAY & "_" & @HOUR & @MIN & @SEC
+		$sDirCrashReport = $sDirScript & "\" & $sTimestamp
+		$sDirCrashReportSaves = $sDirCrashReport & "\SAVEGAME"
+		$sFileCrash = $sDirCrashReport & "\" & $sTimestamp & "_crash.txt"
+		$sFileReport = $sDirCrashReport & "\" & $sTimestamp & "_report.txt"
+		$sFileDump = $sDirCrashReport & "\" & $sTimestamp & ".dmp"
+		$sFileMd5 = $sDirCrashReport & "\" & $sTimestamp & ".md5"
+		DirCreate($sDirCrashReport)
+		$hFileOpen = FileOpen($sFileCrash, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
+		If Not ($hFileOpen == -1) Then
+			FileWrite($hFileOpen, $sTextCrash)
+			FileClose($hFileOpen)
+		EndIf
+		$hFileOpen = -1
+		If ($bWndGameCapture) Then
+			If (ProcessExists($iPIDFfmpegExe)) Then
+				If (ProcessClose($iPIDFfmpegExe)) Then
+					$iPIDFfmpegExe = 0
+				EndIf
+			EndIf
+		EndIf
+		If Not (MsgBox($MB_TOPMOST + $MB_DEFBUTTON2 + $MB_ICONQUESTION + $MB_YESNO, "Crash", $sText1 & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & StringRegExpReplace($sTextCrash, "^((?s)[OoОо]{1}[KkКк]{1}\R+)", "", 1) & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $sText2) == $IDYES) Then
+			If Not ($hWndCrash == 0) Then
+				If (WinExists($hWndCrash)) Then
+					If (WinClose($hWndCrash)) Then
+						If Not (WinWaitClose($hWndCrash, "", 5)) Then
+							WinKill($hWndCrash)
 						EndIf
 					EndIf
 				EndIf
-				$hwndarray[0][0] -= 1
 			EndIf
-		WEnd
-	EndIf
-	If ($hwnd == 0) Then
-		If ($hwnde == 0) Then
-			If (ProcessWaitClose($pid, 5)) Then
-				ExitLoop
-			EndIf
-		EndIf
-	EndIf
-	If Not ($crash == "") Then
-		If Not ($hwnde == 0) Then
-			WinSetOnTop($hwnde, "", 0)
-			WinSetState($hwnde, "", @SW_MINIMIZE)
-		EndIf
-		If Not ($hwnd == 0) Then
-			WinSetOnTop($hwnd, "", 0)
-			If ($fullscreen) Then
-				WinSetState($hwnd, "", @SW_MINIMIZE)
-			EndIf
-		EndIf
-		$crashreport = @YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC
-		$crashreportdir = $scriptdir & "\" & $crashreport
-		$dumpfile = $crashreportdir & "\" & $crashreport & ".dmp"
-		$md5file = $crashreportdir & "\" & $crashreport & ".md5"
-		If Not (DirCreate($crashreportdir)) Then
-			_error_log($crashmonitorlog, $crashreport, $crash, 'DirCreate($crashreportdir)')
-		EndIf
-		$hfile = FileOpen($crashreportdir & "\" & $crashreport & "_crash.txt", 521)
-		If Not ($hfile == -1) Then
-			FileWrite($hfile, $crash)
-			FileClose($hfile)
-		EndIf
-		If ($videorecord) Then
-			$childarray = 0
-			$childarray = _WinAPI_EnumChildProcess($ffpid)
-			If (IsArray($childarray)) Then
-				While Not ($childarray[0][0] == 0)
-					If ($childarray[$childarray[0][0]][1] == "ffmpeg.exe") Then
-						ProcessClose($childarray[$childarray[0][0]][0])
-						ExitLoop
-					EndIf
-					$childarray[0][0] -= 1
-				WEnd
-			EndIf
-		EndIf
-		If Not (MsgBox(262436, "Crashreport", $text1 & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & StringRegExpReplace($crash, "^((?s)[OoОо]{1}[KkКк]{1}\R+)", "", 1) & @CRLF & "-------------------------------------------------------------------------------" & @CRLF & @CRLF & $text2) == 6) Then
-			If Not ($hwnde == 0) Then
-				WinClose($hwnde)
-				If Not (WinWaitClose($hwnde, "", 5)) Then
-					_error_log($crashmonitorlog, $crashreport, $crash, 'WinWaitClose($hwnde, "", 5)')
-					WinKill($hwnde)
-				EndIf
-			EndIf
-			FileMove($crashreportdir & "\" & $crashreport & "_crash.txt", $crashreportdir & "_crash.txt", 9)
-			DirRemove($crashreportdir, 1)
+			FileMove($sFileCrash, $sDirCrashReport & "_crash.txt", $FC_CREATEPATH + $FC_OVERWRITE)
+			DirRemove($sDirCrashReport, $DIR_REMOVE)
 			ContinueLoop
 		EndIf
 		ProgressOn("Please, wait", "Please, wait")
-		If Not ($hwnde == 0) Then
-			WinSetOnTop($hwnde, "", 0)
-			WinSetState($hwnde, "", @SW_MINIMIZE)
+		If Not ($hWndCrash == 0) Then
+			WinSetOnTop($hWndCrash, "", $WINDOWS_NOONTOP)
+			WinSetState($hWndCrash, "", @SW_MINIMIZE)
 		EndIf
-		If Not ($hwnd == 0) Then
-			WinSetOnTop($hwnd, "", 0)
-			WinSetState($hwnd, "", @SW_MINIMIZE)
+		If Not ($hWndGame == 0) Then
+			WinSetOnTop($hWndGame, "", $WINDOWS_NOONTOP)
+			WinSetState($hWndGame, "", @SW_MINIMIZE)
 		EndIf
-		If ($dumpprocess And FileExists($crashreportdir) And ProcessExists($pid)) Then
-			$hprocess = 0
-			$hprocess = _WinAPI_OpenProcess($PROCESS_ALL_ACCESS, 0, $pid, True)
-			If Not ($hprocess == 0) Then
-				$hfile = 0
-				$hfile = _WinAPI_CreateFile($dumpfile, 1)
-				If Not ($hfile == 0) Then
-					$minidumpcall = DllCall("dbghelp.dll", "bool", "MiniDumpWriteDump", "handle", $hprocess, "dword", $pid, "handle", $hfile, "dword", $dumptype, "dword", 0, "dword", 0, "dword", 0)
-					If (IsArray($minidumpcall)) Then
-						If ($minidumpcall[0] == 1) Then
-							_WinAPI_CloseHandle($hfile)
-							_WinAPI_CloseHandle($hprocess)
+		If ($bMiniDump And FileExists($sDirCrashReport) And ProcessExists($iPIDGame)) Then
+			$hOpenProcess = _WinAPI_OpenProcess($PROCESS_ALL_ACCESS, 0, $iPIDGame, True)
+			If (@error == 0 And $hOpenProcess <> 0) Then
+				$hCreateFile = _WinAPI_CreateFile($sFileDump, $FC_OVERWRITE)
+				If (@error == 0 And $hCreateFile <> 0) Then
+					$aMiniDump = DllCall("dbghelp.dll", "bool", "MiniDumpWriteDump", "handle", $hOpenProcess, "dword", $iPIDGame, "handle", $hCreateFile, "dword", $tDumpType, "dword", 0, "dword", 0, "dword", 0)
+					If (@error == 0 And IsArray($aMiniDump)) Then
+						If ($aMiniDump[0] == 1) Then
+							_WinAPI_CloseHandle($hCreateFile)
+							_WinAPI_CloseHandle($hOpenProcess)
 						Else
-							_error_log($crashmonitorlog, $crashreport, $crash, '$minidumpcall = DllCall')
+							_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '$aMiniDump = DllCall')
 						EndIf
 					Else
-						_error_log($crashmonitorlog, $crashreport, $crash, 'IsArray($minidumpcall)')
+						_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '(@error == 0 And IsArray($aMiniDump))')
 					EndIf
+					$aMiniDump = 0
 				Else
-					_error_log($crashmonitorlog, $crashreport, $crash, '_WinAPI_CreateFile')
+					_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '_WinAPI_CreateFile')
 				EndIf
+				$hCreateFile = 0
 			Else
-				_error_log($crashmonitorlog, $crashreport, $crash, '_WinAPI_OpenProcess')
+				_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '_WinAPI_OpenProcess')
 			EndIf
+			$hOpenProcess = 0
 		EndIf
 		ProgressSet(50)
-		If Not ($hwnde == 0) Then
-			WinClose($hwnde)
-			If Not (WinWaitClose($hwnde, "", 5)) Then
-				_error_log($crashmonitorlog, $crashreport, $crash, 'WinWaitClose($hwnde, "", 5)')
-				WinKill($hwnde)
+		If Not ($hWndCrash == 0) Then
+			If (WinExists($hWndCrash)) Then
+				If (WinClose($hWndCrash)) Then
+					If Not (WinWaitClose($hWndCrash, "", 5)) Then
+						WinKill($hWndCrash)
+					EndIf
+				EndIf
 			EndIf
 		EndIf
-		If ($videorecord) Then
-			$ffpid = Run('cmd /c ""' & $ffmpegfile & '" -sseof -10 -i temp.flv ' & $crashreport & '.flv"', $scriptdir, @SW_HIDE)
-			If (ProcessWaitClose($ffpid, 10)) Then
-				FileMove($crashreportdir & ".flv", $crashreportdir & "\" & $crashreport & ".flv", 9)
+		If ($bWndGameCapture) Then
+			$iPIDFfmpegExe = Run('""' & $sFileFfmpegExe & '" -sseof -10 -i temp.flv ' & $sTimestamp & '.flv"', $sDirScript, @SW_HIDE)
+			If (ProcessWaitClose($iPIDFfmpegExe, 10)) Then
+				FileMove($sDirCrashReport & ".flv", $sDirCrashReport & "\" & $sTimestamp & ".flv", $FC_CREATEPATH + $FC_OVERWRITE)
 			EndIf
+			$iPIDFfmpegExe = 0
 		EndIf
 		ProgressOff()
 		#Region ### START Koda GUI section ###
-		$Form1 = GUICreate("Report", 641, 481, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE))
-		$Edit1 = GUICtrlCreateEdit("", 0, 60, 640, 360)
-		$Button1 = GUICtrlCreateButton("Done", 283, 436, 75, 25)
-		$Label1 = GUICtrlCreateLabel($text3, 0, 0, 640, 60, BitOR($SS_CENTER, $SS_CENTERIMAGE))
+		$hForm1 = GUICreate("Report", 641, 481, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE))
+		$idEdit1 = GUICtrlCreateEdit("", 0, 60, 640, 360)
+		$idButton1 = GUICtrlCreateButton("Done", 283, 436, 75, 25)
+		$idLabel1 = GUICtrlCreateLabel($sText3, 0, 0, 640, 60, BitOR($SS_CENTER, $SS_CENTERIMAGE))
 		GUISetState(@SW_SHOW)
-		GUICtrlSetState($Edit1, $GUI_FOCUS)
+		GUICtrlSetState($idEdit1, $GUI_FOCUS)
 		#EndRegion ### END Koda GUI section ###
 		While 1
 			$nMsg = GUIGetMsg()
 			Switch $nMsg
-				Case $GUI_EVENT_CLOSE, $Button1
-					$report = GUICtrlRead($Edit1)
-					GUIDelete($Form1)
+				Case $GUI_EVENT_CLOSE, $idButton1
+					$sTextReport = GUICtrlRead($idEdit1)
+					GUIDelete($hForm1)
 					ExitLoop
 			EndSwitch
 		WEnd
 		ProgressOn("Please, wait", "Please, wait")
-		If (ProcessExists($pid)) Then
-			ProcessClose($pid)
+		If (ProcessExists($iPIDGame)) Then
+			If (ProcessClose($iPIDGame)) Then
+				$iPIDGame = -1
+			EndIf
 		EndIf
-		$hfile = FileOpen($crashreportdir & "\" & $crashreport & "_report.txt", 521)
-		If Not ($hfile == -1) Then
-			FileWrite($hfile, "`" & @UserName & "@" & @ComputerName & @CRLF & $report & "`")
-			FileClose($hfile)
+		$hFileOpen = FileOpen($sFileReport, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
+		If Not ($hFileOpen == -1) Then
+			FileWrite($hFileOpen, "`" & @UserName & "@" & @ComputerName & @CRLF & $sTextReport & "`")
+			FileClose($hFileOpen)
 		EndIf
-		$filesarray = 0
-		$filesarray = _FileListToArray($crashreportdir, "*.txt", 1, 0)
-		If (IsArray($filesarray)) Then
-			While Not ($filesarray[0] == 0)
-				FileCopy($crashreportdir & "\" & $filesarray[$filesarray[0]], $scriptdir & "\" & $filesarray[$filesarray[0]], 9)
-				$filesarray[0] -= 1
+		$hFileOpen = -1
+		$asFileListToArray = _FileListToArray($sDirCrashReport, "*.txt", $FLTA_FILES, False)
+		If (IsArray($asFileListToArray)) Then
+			While Not ($asFileListToArray[0] == 0)
+				FileCopy($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirScript & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)
+				$asFileListToArray[0] -= 1
 			WEnd
 		EndIf
-		If (FileExists($savesdir)) Then
-			DirCreate($crashreportdir & "\SAVEGAME")
-			If (FileExists($savesdir & "\slotdat.ini")) Then
-				If (FileCopy($savesdir & "\slotdat.ini", $crashreportdir & "\SAVEGAME\slotdat.ini", 9)) Then
-					FileSetTime($crashreportdir & "\SAVEGAME\slotdat.ini", FileGetTime($savesdir & "\slotdat.ini", 0, 1))
-					$slotdatarray = IniReadSection($crashreportdir & "\SAVEGAME\slotdat.ini", "POSITION")
-					If (IsArray($slotdatarray)) Then
-						$slotdatarray = $slotdatarray[1][1] + $slotdatarray[2][1]
-						If ($slotdatarray > 9) Then
-							$slotdatarray = "SLOT" & $slotdatarray
+		$asFileListToArray = 0
+		If (FileExists($sDirSaves)) Then
+			DirCreate($sDirCrashReportSaves)
+			If (FileExists($sDirSaves & "\slotdat.ini")) Then
+				If (FileCopy($sDirSaves & "\slotdat.ini", $sDirCrashReportSaves & "\slotdat.ini", $FC_CREATEPATH + $FC_OVERWRITE)) Then
+					FileSetTime($sDirCrashReportSaves & "\slotdat.ini", FileGetTime($sDirSaves & "\slotdat.ini", $FT_MODIFIED, $FT_STRING))
+					$aIniReadSection = IniReadSection($sDirCrashReportSaves & "\slotdat.ini", "POSITION")
+					If (IsArray($aIniReadSection)) Then
+						$aIniReadSection = $aIniReadSection[1][1] + $aIniReadSection[2][1]
+						If ($aIniReadSection > 9) Then
+							$aIniReadSection = "SLOT" & $aIniReadSection
 						Else
-							$slotdatarray = "SLOT0" & $slotdatarray
+							$aIniReadSection = "SLOT0" & $aIniReadSection
 						EndIf
-						If (FileExists($savesdir & "\" & $slotdatarray)) Then
-							If (DirCopy($savesdir & "\" & $slotdatarray, $crashreportdir & "\SAVEGAME\" & $slotdatarray, 0)) Then
-								FileSetTime($crashreportdir & "\SAVEGAME\" & $slotdatarray, FileGetTime($savesdir & "\" & $slotdatarray, 0, 1))
+						If (FileExists($sDirSaves & "\" & $aIniReadSection)) Then
+							If (DirCopy($sDirSaves & "\" & $aIniReadSection, $sDirCrashReportSaves & "\" & $aIniReadSection, $FC_OVERWRITE)) Then
+								FileSetTime($sDirCrashReportSaves & "\" & $aIniReadSection, FileGetTime($sDirSaves & "\" & $aIniReadSection, $FT_MODIFIED, $FT_STRING))
 							EndIf
 						EndIf
 					EndIf
+					$aIniReadSection = 0
 				EndIf
 			EndIf
-			$savesarray = 0
-			$savesarray = _FileListToArray($savesdir, "slot*", 2, 0)
-			If (IsArray($savesarray)) Then
-				$savesarraytime = $savesarray
-				While Not ($savesarraytime[0] == 0)
-					$savesarraytime[$savesarraytime[0]] = FileGetTime($savesdir & "\" & $savesarraytime[$savesarraytime[0]], 0, 1)
-					$savesarraytime[0] -= 1
+			$asFileListToArray = _FileListToArray($sDirSaves, "slot*", $FLTA_FOLDERS, False)
+			If (IsArray($asFileListToArray)) Then
+				$asFileGetTime = $asFileListToArray
+				While Not ($asFileGetTime[0] == 0)
+					$asFileGetTime[$asFileGetTime[0]] = FileGetTime($sDirSaves & "\" & $asFileGetTime[$asFileGetTime[0]], $FT_MODIFIED, $FT_STRING)
+					$asFileGetTime[0] -= 1
 				WEnd
 				For $i = 1 To 10
-					$maxindex = _ArrayMaxIndex($savesarraytime, 1)
-					If Not ($maxindex == 0 Or $maxindex == -1) Then
-						If (DirCopy($savesdir & "\" & $savesarray[$maxindex], $crashreportdir & "\SAVEGAME\" & $savesarray[$maxindex], 1)) Then
-							FileSetTime($crashreportdir & "\SAVEGAME\" & $savesarray[$maxindex], $savesarraytime[$maxindex])
+					$asFileGetTime[0] = _ArrayMaxIndex($asFileGetTime, 1)
+					If Not ($asFileGetTime[0] == 0 Or $asFileGetTime[0] == -1) Then
+						If (DirCopy($sDirSaves & "\" & $asFileListToArray[$asFileGetTime[0]], $sDirCrashReportSaves & "\" & $asFileListToArray[$asFileGetTime[0]], $FC_OVERWRITE)) Then
+							FileSetTime($sDirCrashReportSaves & "\" & $asFileListToArray[$asFileGetTime[0]], $asFileGetTime[$asFileGetTime[0]])
 						EndIf
-						$savesarraytime[$maxindex] = -1
+						$asFileGetTime[$asFileGetTime[0]] = -1
+						$asFileGetTime[0] = 0
 					EndIf
 				Next
+				$asFileGetTime = 0
 			EndIf
+			$asFileListToArray = 0
 		EndIf
-		$hfile = FileOpen($gamedir & "\debug.log", 9)
-		If Not ($hfile == -1) Then
-			FileWrite($hfile, @CRLF & $crashreport & @CRLF & $crash & @CRLF)
-			FileClose($hfile)
+		$hFileOpen = FileOpen($sDirGame & "\debug.log", $FO_CREATEPATH + $FO_APPEND)
+		If Not ($hFileOpen == -1) Then
+			FileWrite($hFileOpen, @CRLF & $sTimestamp & @CRLF & $sTextCrash & @CRLF)
+			FileClose($hFileOpen)
 		EndIf
-		For $i In $extensionsarray
-			$filesarray = 0
-			$filesarray = _FileListToArray($gamedir, $i, 1, 0)
-			If (IsArray($filesarray)) Then
-				While Not ($filesarray[0] == 0)
-					If (FileCopy($gamedir & "\" & $filesarray[$filesarray[0]], $crashreportdir & "\" & $filesarray[$filesarray[0]])) Then
-						FileSetTime($crashreportdir & "\" & $filesarray[$filesarray[0]], FileGetTime($gamedir & "\" & $filesarray[$filesarray[0]], 0, 1))
-					EndIf
-					$filesarray[0] -= 1
-				WEnd
-			EndIf
-		Next
+		$hFileOpen = -1
 		ProgressSet(50)
-		$hfile = FileOpen($md5file, 9)
-		If Not ($hfile == -1) Then
-			$filesarray = 0
-			$filesarray = _FileListToArrayRec($gamedir & "\", "*||savegame;crashreport", 1, 1, 1, 1)
-			If (IsArray($filesarray)) Then
-				While Not ($filesarray[0] == 0)
-					FileWriteLine($hfile, StringLower(Hex(_Crypt_HashFile($gamedir & "\" & $filesarray[$filesarray[0]], $CALG_MD5))) & " *" & $filesarray[$filesarray[0]])
-					$filesarray[0] -= 1
+		For $s In $asFileExtensions
+			$asFileListToArray = _FileListToArray($sDirGame, $s, $FLTA_FILES, False)
+			If (IsArray($asFileListToArray)) Then
+				While Not ($asFileListToArray[0] == 0)
+					If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
+						FileSetTime($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
+					EndIf
+					$asFileListToArray[0] -= 1
 				WEnd
 			EndIf
-			FileClose($hfile)
+			$asFileListToArray = 0
+		Next
+		$hFileOpen = FileOpen($sFileMd5, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
+		If Not ($hFileOpen == -1) Then
+			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*||savegame;crashreport", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
+			If (IsArray($asFileListToArray)) Then
+				While Not ($asFileListToArray[0] == 0)
+					FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
+					$asFileListToArray[0] -= 1
+				WEnd
+			EndIf
+			$asFileListToArray = 0
+			FileClose($hFileOpen)
 		EndIf
+		$hFileOpen = -1
 		ProgressOff()
-		If (ProcessExists($pid)) Then
-			If (ProcessClose($pid)) Then
+		If (ProcessExists($iPIDGame)) Then
+			If (ProcessClose($iPIDGame)) Then
+				$iPIDGame = -1
 				ExitLoop
 			Else
 				Exit
 			EndIf
 		Else
+			$iPIDGame = -1
 			ExitLoop
 		EndIf
 	EndIf
 	Sleep(1000)
 WEnd
 
-If ($videorecord) Then
-	$childarray = 0
-	$childarray = _WinAPI_EnumChildProcess($ffpid)
-	If (IsArray($childarray)) Then
-		While Not ($childarray[0][0] == 0)
-			If ($childarray[$childarray[0][0]][1] == "ffmpeg.exe") Then
-				ProcessClose($childarray[$childarray[0][0]][0])
-				ExitLoop
-			EndIf
-			$childarray[0][0] -= 1
-		WEnd
+
+
+If ($bWndGameCapture) Then
+	If (ProcessExists($iPIDFfmpegExe)) Then
+		If (ProcessClose($iPIDFfmpegExe)) Then
+			$iPIDFfmpegExe = 0
+		EndIf
 	EndIf
 EndIf
 
-$dirsarray = 0
-$dirsarray = _FileListToArray($scriptdir, "*", 2, 0)
-If (IsArray($dirsarray)) Then
-	While Not ($dirsarray[0] == 0)
-		If (StringRegExp($dirsarray[$dirsarray[0]], "^([0-9]{14})$", 0, 1)) Then
+$asFileListToArray = _FileListToArray($sDirScript, "*", $FLTA_FOLDERS, False)
+If (IsArray($asFileListToArray)) Then
+	While Not ($asFileListToArray[0] == 0)
+		If (StringRegExp($asFileListToArray[$asFileListToArray[0]], "^[0-9]{8}\_[0-9]{6}$")) Then
 			ExitLoop
-		Else
-			$dirsarray[0] -= 1
 		EndIf
+		$asFileListToArray[0] -= 1
 	WEnd
-	If Not ($dirsarray[0] == 0) Then
+	If Not ($asFileListToArray[0] == 0) Then
 		ProgressOn("Please, wait", "Please, wait")
-		DirRemove($tempdir, 1)
-		DirCreate($tempdir)
-		FileInstall(".\7za.exe", $tempdir & "\7za.exe", 1)
-		FileInstall(".\7za.dll", $tempdir & "\7za.dll", 1)
-		FileInstall(".\7zxa.dll", $tempdir & "\7zxa.dll", 1)
-		If (FileExists($tempdir & "\7za.exe") And FileExists($tempdir & "\7za.dll") And FileExists($tempdir & "\7zxa.dll")) Then
+		DirRemove($sDirTemp, $DIR_REMOVE)
+		DirCreate($sDirTemp)
+		FileInstall(".\7za.exe", $sFile7zaExe, $FC_OVERWRITE)
+		FileInstall(".\7za.dll", $sFile7zaDll, $FC_OVERWRITE)
+		FileInstall(".\7zxa.dll", $sFile7zxaDll, $FC_OVERWRITE)
+		If (FileExists($sFile7zaExe) And FileExists($sFile7zaDll) And FileExists($sFile7zxaDll)) Then
 			ProgressSet(50)
-			While Not ($dirsarray[0] == 0)
-				If (StringRegExp($dirsarray[$dirsarray[0]], "^([0-9]{14})$", 0, 1)) Then
-					$crashreportdir = $scriptdir & "\" & $dirsarray[$dirsarray[0]]
-					If Not (FileExists($crashreportdir & "_crash.txt")) Then
-						If (FileExists($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt")) Then
-							FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt", $crashreportdir & "_crash.txt", 9)
+			While Not ($asFileListToArray[0] == 0)
+				If (StringRegExp($asFileListToArray[$asFileListToArray[0]], "^[0-9]{8}\_[0-9]{6}$")) Then
+					$sDirCrashReport = $sDirScript & "\" & $asFileListToArray[$asFileListToArray[0]]
+					If Not (FileExists($sDirCrashReport & "_crash.txt")) Then
+						If (FileExists($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_crash.txt")) Then
+							FileCopy($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_crash.txt", $sDirCrashReport & "_crash.txt", $FC_CREATEPATH + $FC_OVERWRITE)
 						Else
-							If (FileExists($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & ".dmp")) Then
-								$hfile = FileOpen($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt", 521)
-								If Not ($hfile == -1) Then
-									FileWrite($hfile, @CRLF & "Unknowncrash" & @CRLF)
-									FileClose($hfile)
+							If (FileExists($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & ".dmp")) Then
+								$hFileOpen = FileOpen($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_crash.txt", $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
+								If Not ($hFileOpen == -1) Then
+									FileWrite($hFileOpen, @CRLF & "UnknownCrash" & @CRLF)
+									FileClose($hFileOpen)
 								EndIf
-								FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_crash.txt", $crashreportdir & "_crash.txt", 9)
+								$hFileOpen = -1
+								FileCopy($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_crash.txt", $sDirCrashReport & "_crash.txt", $FC_CREATEPATH + $FC_OVERWRITE)
 							Else
-								DirRemove($crashreportdir, 1)
-								$dirsarray[0] -= 1
+								DirRemove($sDirCrashReport, $DIR_REMOVE)
+								$asFileListToArray[0] -= 1
 								ContinueLoop
 							EndIf
 						EndIf
 					EndIf
-					If Not (FileExists($crashreportdir & "_report.txt")) Then
-						If (FileExists($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt")) Then
-							FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt", $crashreportdir & "_report.txt", 9)
+					If Not (FileExists($sDirCrashReport & "_report.txt")) Then
+						If (FileExists($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_report.txt")) Then
+							FileCopy($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_report.txt", $sDirCrashReport & "_report.txt", $FC_CREATEPATH + $FC_OVERWRITE)
 						Else
-							$hfile = FileOpen($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt", 521)
-							If Not ($hfile == -1) Then
-								FileWrite($hfile, "`" & @UserName & "@" & @ComputerName & @CRLF & "`")
-								FileClose($hfile)
+							$hFileOpen = FileOpen($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_report.txt", $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
+							If Not ($hFileOpen == -1) Then
+								FileWrite($hFileOpen, "`" & @UserName & "@" & @ComputerName & @CRLF & "`")
+								FileClose($hFileOpen)
 							EndIf
-							FileCopy($crashreportdir & "\" & $dirsarray[$dirsarray[0]] & "_report.txt", $crashreportdir & "_report.txt", 9)
+							$hFileOpen = -1
+							FileCopy($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]] & "_report.txt", $sDirCrashReport & "_report.txt", $FC_CREATEPATH + $FC_OVERWRITE)
 						EndIf
 					EndIf
-					If (FileExists($crashmonitorlog)) Then
-						FileCopy($crashmonitorlog, $crashreportdir & "\crashmonitor.log", 9)
+					If (FileExists($sFileCrashMonitorLog)) Then
+						FileCopy($sFileCrashMonitorLog, $sDirCrashReport & "\CrashMonitor.log", $FC_CREATEPATH + $FC_OVERWRITE)
 					EndIf
-					If (FileExists($crashreportdir & ".7z")) Then
-						FileDelete($crashreportdir & ".7z")
+					If (FileExists($sDirCrashReport & ".7z")) Then
+						FileDelete($sDirCrashReport & ".7z")
 					EndIf
-					If Not (RunWait('"' & $tempdir & '\7za.exe" a "' & $crashreportdir & '.7z" "' & $crashreportdir & '"', $scriptdir, @SW_HIDE)) Then
-						If (FileExists($crashreportdir & ".7z")) Then
-							DirRemove($crashreportdir, 1)
-						Else
-							_error_log($crashmonitorlog, $dirsarray[$dirsarray[0]], "7za", 'FileExists($crashreportdir & ".7z")')
+					If Not (RunWait('"' & $sFile7zaExe & '" a "' & $sDirCrashReport & '.7z" "' & $sDirCrashReport & '"', $sDirScript, @SW_HIDE)) Then
+						If (FileExists($sDirCrashReport & ".7z")) Then
+							DirRemove($sDirCrashReport, $DIR_REMOVE)
 						EndIf
-					Else
-						_error_log($crashmonitorlog, $dirsarray[$dirsarray[0]], "7za", 'RunWait')
 					EndIf
-					$dirsarray[0] -= 1
-				Else
-					$dirsarray[0] -= 1
 				EndIf
+				$asFileListToArray[0] -= 1
 			WEnd
-		Else
-			_error_log($crashmonitorlog, $dirsarray[$dirsarray[0]], "7za", 'FileExists($tempdir & "\7za.exe")')
 		EndIf
-		DirRemove($tempdir, 1)
+		DirRemove($sDirTemp, $DIR_REMOVE)
 		ProgressOff()
 	EndIf
 EndIf
+$asFileListToArray = 0
 
-$files = 0
-$files = _FileListToArray($scriptdir, "*.7z", 1, 1)
-If (IsArray($files)) Then
-	While Not ($files[0] == 0)
-		If (StringRegExp($files[$files[0]], "^.*[0-9]{14}\.7z$", 0, 1)) Then
-			If ($ytokenexpires > (@YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC)) Then
-				If Not (StringRegExp(@OSVersion, "(WIN_2000)", 0, 1)) Then
-					If (MsgBox(262436, "Crashreport is ready", $text6 & Ceiling(FileGetSize($files[$files[0]]) / 1048576) & "MB)" & @CRLF & @CRLF & $files[$files[0]]) == 6) Then
+$asFileListToArray = _FileListToArray($sDirScript, "*.7z", $FLTA_FILES, True)
+If (IsArray($asFileListToArray)) Then
+	While Not ($asFileListToArray[0] == 0)
+		If (StringRegExp($asFileListToArray[$asFileListToArray[0]], "^.*[0-9]{8}\_[0-9]{6}\.7z$")) Then
+			If ($sYandexTokenExpires > (@YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC)) Then
+				If Not (StringRegExp(@OSVersion, "^WIN_2000$")) Then
+					If (MsgBox($MB_TOPMOST + $MB_DEFBUTTON2 + $MB_ICONQUESTION + $MB_YESNO, "CrashReport is ready", $sText6 & Ceiling(FileGetSize($asFileListToArray[$asFileListToArray[0]]) / 1048576) & "MB)" & @CRLF & @CRLF & $asFileListToArray[$asFileListToArray[0]]) == $IDYES) Then
 						ProgressOn("Please, wait", "Please, wait")
-						If Not (FileExists($crashmonitorreportexe)) Then
-							InetGet(StringRegExpReplace(BinaryToString(InetRead("https://api.github.com/repos/" & $owner & "/" & $repo & "/releases/latest"), 4), '(?:(?s).*\"browser_download_url\"[^\"]*\")([^\"]+CrashMonitorReport\.exe)(?:\"(?s).*)', '\1'), $crashmonitorreportexe)
+						If Not (FileExists($sFileCrashMonitorReportExe)) Then
+							InetGet($sUrlCrashMonitorReportExe, $sFileCrashMonitorReportExe)
 						EndIf
-						If Not (StringLower(Hex(_Crypt_HashFile($crashmonitorreportexe, $CALG_MD5))) == $crashmonitorreportmd5) Then
-							InetGet(StringRegExpReplace(BinaryToString(InetRead("https://api.github.com/repos/" & $owner & "/" & $repo & "/releases/latest"), 4), '(?:(?s).*\"browser_download_url\"[^\"]*\")([^\"]+CrashMonitorReport\.exe)(?:\"(?s).*)', '\1'), $crashmonitorreportexe)
+						If Not (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
+							InetGet($sUrlCrashMonitorReportExe, $sFileCrashMonitorReportExe)
 						EndIf
 						ProgressSet(50)
-						If (FileExists($crashmonitorreportexe)) Then
-							If (StringLower(Hex(_Crypt_HashFile($crashmonitorreportexe, $CALG_MD5))) == $crashmonitorreportmd5) Then
-								If Not (RunWait('"' & $crashmonitorreportexe & '" --ytoken="' & $ytoken & '" --gtoken="' & $gtoken & '" --file="' & $files[$files[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($files[$files[0]], $CALG_MD5))) & '" --owner="' & $owner & '" --repo="' & $repo & '"', $scriptdir, @SW_HIDE)) Then
-									FileDelete($files[$files[0]])
-									FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))
-									FileDelete(StringRegExpReplace($files[$files[0]], "\.7z$", "_report.txt"))
-									$files[0] -= 1
+						If (FileExists($sFileCrashMonitorReportExe)) Then
+							If (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
+								If Not (RunWait('"' & $sFileCrashMonitorReportExe & '" --ytoken="' & $sYandexToken & '" --gtoken="' & $sGitHubToken & '" --file="' & $asFileListToArray[$asFileListToArray[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & '" --owner="' & $sGitHubOwner & '" --repo="' & $sGitHubRepo & '"', $sDirScript, @SW_HIDE)) Then
+									FileDelete($asFileListToArray[$asFileListToArray[0]])
+									FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt"))
+									FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_report.txt"))
+									$asFileListToArray[0] -= 1
 									ProgressOff()
 									ContinueLoop
 								EndIf
@@ -611,19 +610,20 @@ If (IsArray($files)) Then
 					EndIf
 				EndIf
 			EndIf
-			If (FileExists(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt"))) Then
-				If (StringRegExp(FileRead(StringRegExpReplace($files[$files[0]], "\.7z$", "_crash.txt")), "(Unknowncrash|[0-9A-Fa-f]{8})", 0, 1)) Then
-					$text5 = "sfall"
+			If (FileExists(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt"))) Then
+				If (StringRegExp(FileRead(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt")), "(UnknownCrash|[0-9A-Fa-f]{8})")) Then
+					$sText5 = "sfall"
 				EndIf
 			EndIf
-			MsgBox(262192, "Crashreport is ready", $text4 & $text5 & @CRLF & @CRLF & $files[$files[0]])
-			ShellExecute($scriptdir)
-			ExitLoop
-		Else
-			$files[0] -= 1
+			If (MsgBox($MB_TOPMOST + $MB_ICONWARNING, "CrashReport is ready", $sText4 & $sText5 & @CRLF & @CRLF & $asFileListToArray[$asFileListToArray[0]]) == $IDOK) Then
+				ShellExecute($sDirScript)
+				ExitLoop
+			EndIf
 		EndIf
+		$asFileListToArray[0] -= 1
 	WEnd
 EndIf
+$asFileListToArray = 0
 
 
 
@@ -632,15 +632,9 @@ Exit
 
 
 Func _error_log($a, $b, $c, $d)
-	Local $thfile = FileOpen($a, 9)
-	FileWrite($thfile, "__________" & @CRLF & $b & @CRLF & $c & @CRLF & $d & @CRLF & "__________")
-	FileClose($thfile)
+	Local $hfile = FileOpen($a, 9)
+	FileWrite($hfile, "__________" & @CRLF & $b & @CRLF & $c & @CRLF & $d & @CRLF & "__________")
+	FileClose($hfile)
 EndFunc   ;==>_error_log
-
-Func _DWORD($a)
-	Local $tDWORD = DllStructCreate("DWORD")
-	DllStructSetData($tDWORD, 1, $a)
-	Return DllStructGetData($tDWORD, 1)
-EndFunc   ;==>_DWORD
 
 

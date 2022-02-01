@@ -8,5 +8,5 @@ Example
 
 
 ```
-.\CrashMonitor.exe 0x0071035C 0 1 0x00000002
+.\CrashReport\CrashMonitor.exe 0x0071035C 0 1 0x00000002
 ```
