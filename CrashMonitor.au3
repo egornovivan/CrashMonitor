@@ -40,7 +40,6 @@ Const $sVerCrashMonitorReportExe = "v2.4"
 Const $sMd5CrashMonitorReportExe = "780645f39cb512b01087539365635d1c"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
-Const $asFileExtensions = ["*.log", "*.txt", "*.ini", "*.inf", "*.cfg", "*.dll"]
 Const $sDirTemp = @TempDir & "\CrashMonitor"
 Const $sDirScript = @ScriptDir
 Const $sFile7zaExe = $sDirTemp & "\7za.exe"
@@ -461,18 +460,28 @@ While 1
 		EndIf
 		$hFileOpen = -1
 		ProgressSet(50)
-		For $s In $asFileExtensions
-			$asFileListToArray = _FileListToArray($sDirGame, $s, $FLTA_FILES, False)
-			If (IsArray($asFileListToArray)) Then
-				While Not ($asFileListToArray[0] == 0)
+		$asFileListToArray = _FileListToArray($sDirGame, "*.dll", $FLTA_FILES, False)
+		If (IsArray($asFileListToArray)) Then
+			While Not ($asFileListToArray[0] == 0)
+				If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
+					FileSetTime($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
+				EndIf
+				$asFileListToArray[0] -= 1
+			WEnd
+		EndIf
+		$asFileListToArray = 0
+		$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*.cfg;*.inf;*.ini;*.log;*.txt", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
+		If (IsArray($asFileListToArray)) Then
+			While Not ($asFileListToArray[0] == 0)
+				If Not (StringRegExp($asFileListToArray[$asFileListToArray[0]], "((?i)^crashreport\\|^data\\savegame\\|^data\\text\\)")) Then
 					If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
 						FileSetTime($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
 					EndIf
-					$asFileListToArray[0] -= 1
-				WEnd
-			EndIf
-			$asFileListToArray = 0
-		Next
+				EndIf
+				$asFileListToArray[0] -= 1
+			WEnd
+		EndIf
+		$asFileListToArray = 0
 		$hFileOpen = FileOpen($sFileMd5, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
 		If Not ($hFileOpen == -1) Then
 			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
