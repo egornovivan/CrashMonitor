@@ -475,10 +475,12 @@ While 1
 		Next
 		$hFileOpen = FileOpen($sFileMd5, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
 		If Not ($hFileOpen == -1) Then
-			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*||savegame;crashreport", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
+			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
 			If (IsArray($asFileListToArray)) Then
 				While Not ($asFileListToArray[0] == 0)
-					FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
+					If Not (StringRegExp($asFileListToArray[$asFileListToArray[0]], "((?i)^crashreport\\|^data\\savegame\\|^data\\text\\)")) Then
+						FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
+					EndIf
 					$asFileListToArray[0] -= 1
 				WEnd
 			EndIf
