@@ -37,7 +37,7 @@ Const $sYandexTokenExpires = "20230115000000"
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.5"
+Const $sVerCrashMonitorReportExe = "v2.6"
 Const $sMd5CrashMonitorReportExe = "780645f39cb512b01087539365635d1c"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
@@ -55,13 +55,14 @@ Global $hWndGame = 0
 Global $bWndGameFullscreen = False
 Global $bMiniDump = False
 Global $tDumpType = DllStructCreate("DWORD")
-Global $bWndGameCapture = False
-Global $iPIDGame = -1, $hFileOpen = -1
-Global $iPIDFfmpegExe = 0, $iDriveSpaceFree = 0, $hWndCrash = 0
-Global $sTextCrash = "", $sTextReport = "", $sTitleGame = ""
+Global $bWndGameCapture = False, $iPIDFfmpegExe = 0, $aEnumChildProcess = 0, $sTitleGame = ""
+Global $bWndGameScreenshot = False, $aiWndGameRect = 0, $hCDC = 0, $hDDC = 0, $hBMP = 0
+Global $iPIDGame = -1, $hFileOpen = -1, $hDLL = -1
+Global $iDriveSpaceFree = 0, $hWndCrash = 0
+Global $sTextCrash = "", $sTextReport = ""
 Global $sTimestamp = "", $sDirCrashReport = "", $sDirCrashReportSaves = "", $sFileCrash = "", $sFileReport = "", $sFileDump = "", $sFileMd5 = "", $sFileJpg = ""
 Global $hOpenProcess = 0, $hCreateFile = 0, $hForm1 = 0, $idEdit1 = 0, $idButton1 = 0, $idLabel1 = 0, $nMsg = 0
-Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aEnumChildProcess = 0, $aMiniDump = 0, $aIniReadSection = 0, $asFileGetTime = 0
+Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aMiniDump = 0, $aIniReadSection = 0, $asFileGetTime = 0
 
 Global $sText0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
 Global $sText1 = "The application crashed with an error:"
@@ -203,17 +204,32 @@ Else
 EndIf
 
 If Not ($bWndGameFullscreen) Then
-	_ScreenCapture_SetJPGQuality(90)
-	Global $hBITMAP = _ScreenCapture_CaptureWnd("", $hWndGame)
+	$bWndGameScreenshot = True
+	$aiWndGameRect = _WndGameRect($hWndGame)
+	If (IsArray($aiWndGameRect)) Then
+		_ScreenCapture_SetJPGQuality(90)
+		$hDDC = _WinAPI_GetDC($hWndGame)
+		$hCDC = _WinAPI_CreateCompatibleDC($hDDC)
+		$hBMP = _WinAPI_CreateCompatibleBitmap($hDDC, $aiWndGameRect[0], $aiWndGameRect[1])
+		_WinAPI_SelectObject($hCDC, $hBMP)
+		$hDLL = DllOpen("gdi32.dll")
+		If ($hDLL == -1) Then
+			$bWndGameScreenshot = False
+		EndIf
+	Else
+		$bWndGameScreenshot = False
+	EndIf
+Else
+	$bWndGameScreenshot = False
 EndIf
+
 
 
 While 1
 	If WinActive($hWndGame) Then
-		If Not $bWndGameFullscreen Then
-			If _WinAPI_DeleteObject($hBITMAP) Then
-				$hBITMAP = _ScreenCapture_CaptureWnd("", $hWndGame)
-			EndIf
+		If $bWndGameScreenshot Then
+			If WinActive($hWndGame) Then DllCall($hDLL, "bool", "BitBlt", "handle", $hCDC, "int", 0, "int", 0, "int", $aiWndGameRect[0], "int", $aiWndGameRect[1], "handle", $hDDC, "int", $aiWndGameRect[2], "int", $aiWndGameRect[3], "dword", $SRCCOPY)
+			If @error Then $bWndGameScreenshot = False
 		EndIf
 		If $bWndGameCapture Then
 			If Not ProcessExists($iPIDFfmpegExe) Then
@@ -369,6 +385,12 @@ While 1
 				$hOpenProcess = 0
 			EndIf
 			ProgressSet(50)
+			If ($bWndGameScreenshot) Then
+				DllClose($hDLL)
+				_WinAPI_ReleaseDC($hWndGame, $hDDC)
+				_WinAPI_DeleteDC($hCDC)
+				_ScreenCapture_SaveImage($sFileJpg, $hBMP, True)
+			EndIf
 			If Not ($hWndCrash == 0) Then
 				If (WinExists($hWndCrash)) Then
 					If (WinClose($hWndCrash)) Then
@@ -377,9 +399,6 @@ While 1
 						EndIf
 					EndIf
 				EndIf
-			EndIf
-			If Not ($bWndGameFullscreen) Then
-				_ScreenCapture_SaveImage($sFileJpg, $hBITMAP)
 			EndIf
 			If ($bWndGameCapture) Then
 				$iPIDFfmpegExe = Run('cmd /c ""' & $sFileFfmpegExe & '" -sseof -10 -i temp.flv ' & $sTimestamp & '.flv"', $sDirScript, @SW_HIDE)
@@ -526,6 +545,7 @@ While 1
 				ExitLoop
 			EndIf
 		EndIf
+		Sleep(1000)
 	EndIf
 	Sleep(500)
 WEnd
@@ -674,6 +694,41 @@ $asFileListToArray = 0
 Exit
 
 
+
+Func _WndGameRect($hWnd, $iLeft = 0, $iTop = 0, $iRight = -1, $iBottom = -1)
+	If Not IsHWnd($hWnd) Then $hWnd = WinGetHandle($hWnd)
+	Local $tRECT = DllStructCreate($tagRECT)
+	; needed to get rect when Aero theme is active : Thanks Kafu, Zedna
+	Local Const $DWMWA_EXTENDED_FRAME_BOUNDS = 9
+	Local $bRet = DllCall("dwmapi.dll", "long", "DwmGetWindowAttribute", "hwnd", $hWnd, "dword", $DWMWA_EXTENDED_FRAME_BOUNDS, "struct*", $tRECT, "dword", DllStructGetSize($tRECT))
+	If (@error Or $bRet[0] Or (Abs(DllStructGetData($tRECT, "Left")) + Abs(DllStructGetData($tRECT, "Top")) + _
+			Abs(DllStructGetData($tRECT, "Right")) + Abs(DllStructGetData($tRECT, "Bottom"))) = 0) Then
+		$tRECT = _WinAPI_GetWindowRect($hWnd)
+		If @error Then Return SetError(@error + 10, @extended, False)
+	EndIf
+
+	$iLeft += DllStructGetData($tRECT, "Left")
+	$iTop += DllStructGetData($tRECT, "Top")
+	If $iRight = -1 Then $iRight = DllStructGetData($tRECT, "Right") - DllStructGetData($tRECT, "Left") - 1
+	If $iBottom = -1 Then $iBottom = DllStructGetData($tRECT, "Bottom") - DllStructGetData($tRECT, "Top") - 1
+	$iRight += DllStructGetData($tRECT, "Left")
+	$iBottom += DllStructGetData($tRECT, "Top")
+	If $iLeft > DllStructGetData($tRECT, "Right") Then $iLeft = DllStructGetData($tRECT, "Left")
+	If $iTop > DllStructGetData($tRECT, "Bottom") Then $iTop = DllStructGetData($tRECT, "Top")
+	If $iRight > DllStructGetData($tRECT, "Right") Then $iRight = DllStructGetData($tRECT, "Right") - 1
+	If $iBottom > DllStructGetData($tRECT, "Bottom") Then $iBottom = DllStructGetData($tRECT, "Bottom") - 1
+
+	$bRet = False
+	If $iRight = -1 Then $iRight = _WinAPI_GetSystemMetrics($SM_CXSCREEN) - 1
+	If $iBottom = -1 Then $iBottom = _WinAPI_GetSystemMetrics($SM_CYSCREEN) - 1
+	If $iRight < $iLeft Then Return SetError(-1, 0, $bRet)
+	If $iBottom < $iTop Then Return SetError(-2, 0, $bRet)
+
+	Local $iW = ($iRight - $iLeft) + 1
+	Local $iH = ($iBottom - $iTop) + 1
+	Local $aiRect = [$iW, $iH, $iLeft, $iTop]
+	Return $aiRect
+EndFunc   ;==>_WndGameRect
 
 Func _error_log($a, $b, $c, $d)
 	Local $hfile = FileOpen($a, 9)
