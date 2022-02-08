@@ -1,6 +1,7 @@
 
 from sys import exit
 from time import sleep
+import tempfile
 import os.path
 import argparse
 import json
@@ -15,6 +16,7 @@ parser.add_argument('--file', help='file')
 parser.add_argument('--md5', help='md5')
 parser.add_argument('--owner', help='owner')
 parser.add_argument('--repo', help='repo')
+parser.add_argument('--ver', help='ver')
 args = parser.parse_args()
 
 iytoken = args.ytoken
@@ -23,6 +25,7 @@ ifile = args.file
 imd5 = args.md5
 iowner = args.owner
 irepo = args.repo
+iver = args.ver
 
 
 def check_issue(owner, repo, title):
@@ -102,7 +105,17 @@ def create_comment(owner, repo, issue_number, body, token):
 if os.path.isfile(ifile):
     if os.path.isfile(re.sub(r'\.7z$', r'_crash.txt', ifile)):
         if os.path.isfile(re.sub(r'\.7z$', r'_report.txt', ifile)):
-            disk = yadisk.YaDisk(token=iytoken)
+            with tempfile.TemporaryDirectory() as tdir:
+                disk = yadisk.YaDisk()
+                disk.download_public(iytoken, r''.join([tdir, r'\temp.txt']))
+                with open(r''.join([tdir, r'\temp.txt'])) as file:
+                    iytoken = file.readline().split(r';')
+            for ver in iytoken:
+                if ver == iver:
+                    break
+            else:
+                exit(0)
+            disk = yadisk.YaDisk(token=iytoken[0])
             disk.upload(ifile, r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile), overwrite=True)
             disk.publish(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile))
             iurl = disk.get_meta(r'app:/%s' % re.sub(r'^(?:.*)([0-9]{8}\_[0-9]{6}\.7z)$', r'\1', ifile)).public_url

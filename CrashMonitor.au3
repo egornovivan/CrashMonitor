@@ -33,12 +33,11 @@ AutoItSetOption("TrayIconHide", 1)
 
 
 Const $sYandexToken = ""
-Const $sYandexTokenExpires = "20230115000000"
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.6"
-Const $sMd5CrashMonitorReportExe = "780645f39cb512b01087539365635d1c"
+Const $sVerCrashMonitorReportExe = "v2.7"
+Const $sMd5CrashMonitorReportExe = "95bd0bc005eb86ed5208e8498f2cf5c6"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
 Const $sDirTemp = @TempDir & "\CrashMonitor"
@@ -645,33 +644,31 @@ $asFileListToArray = _FileListToArray($sDirScript, "*.7z", $FLTA_FILES, True)
 If (IsArray($asFileListToArray)) Then
 	While Not ($asFileListToArray[0] == 0)
 		If (StringRegExp($asFileListToArray[$asFileListToArray[0]], "^.*[0-9]{8}\_[0-9]{6}\.7z$")) Then
-			If ($sYandexTokenExpires > (@YEAR & @MON & @MDAY & @HOUR & @MIN & @SEC)) Then
-				If Not (StringRegExp(@OSVersion, "^WIN_2000$")) Then
-					If (MsgBox($MB_TOPMOST + $MB_DEFBUTTON2 + $MB_ICONQUESTION + $MB_YESNO, "CrashReport is ready", $sText6 & Ceiling(FileGetSize($asFileListToArray[$asFileListToArray[0]]) / 1048576) & "MB)" & @CRLF & @CRLF & $asFileListToArray[$asFileListToArray[0]]) == $IDYES) Then
-						ProgressOn("Please, wait", "Please, wait")
-						If Not (FileExists($sFileCrashMonitorReportExe)) Then
-							InetGet($sUrlCrashMonitorReportExe, $sFileCrashMonitorReportExe)
-						EndIf
-						If Not (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
-							InetGet($sUrlCrashMonitorReportExe, $sFileCrashMonitorReportExe)
-						EndIf
-						ProgressSet(50)
-						If (FileExists($sFileCrashMonitorReportExe)) Then
-							If (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
-								If Not (RunWait('"' & $sFileCrashMonitorReportExe & '" --ytoken="' & $sYandexToken & '" --gtoken="' & $sGitHubToken & '" --file="' & $asFileListToArray[$asFileListToArray[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & '" --owner="' & $sGitHubOwner & '" --repo="' & $sGitHubRepo & '"', $sDirScript, @SW_HIDE)) Then
-									FileDelete($asFileListToArray[$asFileListToArray[0]])
-									FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt"))
-									FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_report.txt"))
-									$asFileListToArray[0] -= 1
-									ProgressOff()
-									ContinueLoop
-								EndIf
+			If Not (StringRegExp(@OSVersion, "^WIN_2000$")) Then
+				If (MsgBox($MB_TOPMOST + $MB_DEFBUTTON2 + $MB_ICONQUESTION + $MB_YESNO, "CrashReport is ready", $sText6 & Ceiling(FileGetSize($asFileListToArray[$asFileListToArray[0]]) / 1048576) & "MB)" & @CRLF & @CRLF & $asFileListToArray[$asFileListToArray[0]]) == $IDYES) Then
+					ProgressOn("Please, wait", "Please, wait")
+					If Not (FileExists($sFileCrashMonitorReportExe)) Then
+						InetGet($sUrlCrashMonitorReportExe, $sFileCrashMonitorReportExe)
+					EndIf
+					If Not (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
+						InetGet($sUrlCrashMonitorReportExe, $sFileCrashMonitorReportExe)
+					EndIf
+					ProgressSet(50)
+					If (FileExists($sFileCrashMonitorReportExe)) Then
+						If (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
+							If Not (RunWait('"' & $sFileCrashMonitorReportExe & '" --ytoken="' & $sYandexToken & '" --gtoken="' & $sGitHubToken & '" --file="' & $asFileListToArray[$asFileListToArray[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & '" --owner="' & $sGitHubOwner & '" --repo="' & $sGitHubRepo & '" --ver="' & $sVerCrashMonitorReportExe & '"', $sDirScript, @SW_HIDE)) Then
+								FileDelete($asFileListToArray[$asFileListToArray[0]])
+								FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt"))
+								FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_report.txt"))
+								$asFileListToArray[0] -= 1
+								ProgressOff()
+								ContinueLoop
 							EndIf
 						EndIf
-						ProgressOff()
-					Else
-						ExitLoop
 					EndIf
+					ProgressOff()
+				Else
+					ExitLoop
 				EndIf
 			EndIf
 			If (FileExists(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt"))) Then
