@@ -36,7 +36,7 @@ Const $sYandexToken = ""
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.7"
+Const $sVerCrashMonitorReportExe = "v2.8"
 Const $sMd5CrashMonitorReportExe = "95bd0bc005eb86ed5208e8498f2cf5c6"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
