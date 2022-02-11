@@ -504,13 +504,11 @@ While 1
 				WEnd
 			EndIf
 			$asFileListToArray = 0
-			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*.cfg;*.inf;*.ini;*.log;*.txt", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
+			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*.cfg;*.inf;*.ini;*.log;*.txt||crashreport;savegame;text", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
 			If (IsArray($asFileListToArray)) Then
 				While Not ($asFileListToArray[0] == 0)
-					If Not (StringRegExp($asFileListToArray[$asFileListToArray[0]], "((?i)^crashreport\\|^data\\savegame\\|^data\\text\\)")) Then
-						If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
-							FileSetTime($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
-						EndIf
+					If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
+						FileSetTime($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
 					EndIf
 					$asFileListToArray[0] -= 1
 				WEnd
@@ -518,12 +516,10 @@ While 1
 			$asFileListToArray = 0
 			$hFileOpen = FileOpen($sFileMd5, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
 			If Not ($hFileOpen == -1) Then
-				$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
+				$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*||crashreport;savegame;text", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
 				If (IsArray($asFileListToArray)) Then
 					While Not ($asFileListToArray[0] == 0)
-						If Not (StringRegExp($asFileListToArray[$asFileListToArray[0]], "((?i)^crashreport\\|^data\\savegame\\|^data\\text\\)")) Then
-							FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
-						EndIf
+						FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
 						$asFileListToArray[0] -= 1
 					WEnd
 				EndIf
