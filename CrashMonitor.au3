@@ -36,7 +36,7 @@ Const $sYandexToken = ""
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.9"
+Const $sVerCrashMonitorReportExe = "v2.10"
 Const $sMd5CrashMonitorReportExe = "95bd0bc005eb86ed5208e8498f2cf5c6"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
@@ -701,7 +701,7 @@ Exit
 
 
 
-Func _WndGameRect($hWnd, $iLeft = 0, $iTop = 0, $iRight = -1, $iBottom = -1)
+Func _WndGameRect($hWnd, $iLeft = 0, $iTop = 0, $iRight = 0, $iBottom = 0)
 	If Not IsHWnd($hWnd) Then $hWnd = WinGetHandle($hWnd)
 	Local $tRECT = DllStructCreate($tagRECT)
 	; needed to get rect when Aero theme is active : Thanks Kafu, Zedna
@@ -713,26 +713,14 @@ Func _WndGameRect($hWnd, $iLeft = 0, $iTop = 0, $iRight = -1, $iBottom = -1)
 		If @error Then Return SetError(@error + 10, @extended, False)
 	EndIf
 
-	$iLeft += DllStructGetData($tRECT, "Left")
-	$iTop += DllStructGetData($tRECT, "Top")
-	If $iRight = -1 Then $iRight = DllStructGetData($tRECT, "Right") - DllStructGetData($tRECT, "Left") - 1
-	If $iBottom = -1 Then $iBottom = DllStructGetData($tRECT, "Bottom") - DllStructGetData($tRECT, "Top") - 1
-	$iRight += DllStructGetData($tRECT, "Left")
-	$iBottom += DllStructGetData($tRECT, "Top")
-	If $iLeft > DllStructGetData($tRECT, "Right") Then $iLeft = DllStructGetData($tRECT, "Left")
-	If $iTop > DllStructGetData($tRECT, "Bottom") Then $iTop = DllStructGetData($tRECT, "Top")
-	If $iRight > DllStructGetData($tRECT, "Right") Then $iRight = DllStructGetData($tRECT, "Right") - 1
-	If $iBottom > DllStructGetData($tRECT, "Bottom") Then $iBottom = DllStructGetData($tRECT, "Bottom") - 1
-
-	$bRet = False
-	If $iRight = -1 Then $iRight = _WinAPI_GetSystemMetrics($SM_CXSCREEN) - 1
-	If $iBottom = -1 Then $iBottom = _WinAPI_GetSystemMetrics($SM_CYSCREEN) - 1
-	If $iRight < $iLeft Then Return SetError(-1, 0, $bRet)
-	If $iBottom < $iTop Then Return SetError(-2, 0, $bRet)
+	$iLeft = DllStructGetData($tRECT, "Left")
+	$iTop = DllStructGetData($tRECT, "Top")
+	$iRight = DllStructGetData($tRECT, "Right")
+	$iBottom = DllStructGetData($tRECT, "Bottom")
 
 	Local $iW = ($iRight - $iLeft) + 1
 	Local $iH = ($iBottom - $iTop) + 1
-	Local $aiRect = [$iW, $iH, $iLeft, $iTop]
+	Local $aiRect = [$iW, $iH, 0, 0]
 	Return $aiRect
 EndFunc   ;==>_WndGameRect
 
