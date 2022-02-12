@@ -36,7 +36,7 @@ Const $sYandexToken = ""
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.8"
+Const $sVerCrashMonitorReportExe = "v2.9"
 Const $sMd5CrashMonitorReportExe = "95bd0bc005eb86ed5208e8498f2cf5c6"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
 
@@ -494,7 +494,7 @@ While 1
 			EndIf
 			$hFileOpen = -1
 			ProgressSet(50)
-			$asFileListToArray = _FileListToArray($sDirGame, "*.dll", $FLTA_FILES, False)
+			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*.cfg;*.inf;*.ini;*.log;*.txt;*.dll", $FLTAR_FILES, $FLTAR_NORECUR, $FLTAR_SORT, $FLTAR_RELPATH)
 			If (IsArray($asFileListToArray)) Then
 				While Not ($asFileListToArray[0] == 0)
 					If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
@@ -504,24 +504,37 @@ While 1
 				WEnd
 			EndIf
 			$asFileListToArray = 0
-			$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*.cfg;*.inf;*.ini;*.log;*.txt||crashreport;savegame;text", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
-			If (IsArray($asFileListToArray)) Then
-				While Not ($asFileListToArray[0] == 0)
-					If (FileCopy($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
-						FileSetTime($sDirCrashReport & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
+			If (FileExists($sDirCrashReport & "\ddraw.ini")) Then
+				$aIniReadSection = StringRegExpReplace(StringRegExpReplace(IniRead($sDirCrashReport & "\ddraw.ini", "Scripts", "IniConfigFolder", "mods"), "^(\\|\.\\|\.\.\\|\/|\.\/|\.\.\/)", ""), "^([^\/\\]*)(?:.*)$", "\1")
+				If ($aIniReadSection == "") Then
+					$aIniReadSection = "mods"
+				EndIf
+				If (FileExists($sDirGame & "\" & $aIniReadSection)) Then
+					$asFileListToArray = _FileListToArrayRec($sDirGame & "\" & $aIniReadSection & "\", "*.cfg;*.inf;*.ini;*.log;*.txt;*.dll", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
+					If (IsArray($asFileListToArray)) Then
+						While Not ($asFileListToArray[0] == 0)
+							If (FileCopy($sDirGame & "\" & $aIniReadSection & "\" & $asFileListToArray[$asFileListToArray[0]], $sDirCrashReport & "\" & $aIniReadSection & "\" & $asFileListToArray[$asFileListToArray[0]], $FC_CREATEPATH + $FC_OVERWRITE)) Then
+								FileSetTime($sDirCrashReport & "\" & $aIniReadSection & "\" & $asFileListToArray[$asFileListToArray[0]], FileGetTime($sDirGame & "\" & $aIniReadSection & "\" & $asFileListToArray[$asFileListToArray[0]], $FT_MODIFIED, $FT_STRING))
+							EndIf
+							$asFileListToArray[0] -= 1
+						WEnd
 					EndIf
-					$asFileListToArray[0] -= 1
-				WEnd
+					$asFileListToArray = 0
+				EndIf
+				$aIniReadSection = 0
 			EndIf
-			$asFileListToArray = 0
 			$hFileOpen = FileOpen($sFileMd5, $FO_ANSI + $FO_CREATEPATH + $FO_APPEND)
 			If Not ($hFileOpen == -1) Then
 				$asFileListToArray = _FileListToArrayRec($sDirGame & "\", "*||crashreport;savegame;text", $FLTAR_FILES, $FLTAR_RECUR, $FLTAR_SORT, $FLTAR_RELPATH)
 				If (IsArray($asFileListToArray)) Then
-					While Not ($asFileListToArray[0] == 0)
-						FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
-						$asFileListToArray[0] -= 1
-					WEnd
+					If ($asFileListToArray[0] >= 5000) Then
+						FileWriteLine($hFileOpen, "Attention Plyushkin!")
+					Else
+						While Not ($asFileListToArray[0] == 0)
+							FileWriteLine($hFileOpen, StringLower(Hex(_Crypt_HashFile($sDirGame & "\" & $asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & " *" & $asFileListToArray[$asFileListToArray[0]])
+							$asFileListToArray[0] -= 1
+						WEnd
+					EndIf
 				EndIf
 				$asFileListToArray = 0
 				FileClose($hFileOpen)
