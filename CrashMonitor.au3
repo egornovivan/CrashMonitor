@@ -60,7 +60,7 @@ Global $bWndGameCapture = False, $iPIDFfmpegExe = 0, $aEnumChildProcess = 0, $sT
 Global $bWndGameScreenshot = False, $aiWndGameRect = 0, $hCDC = 0, $hDDC = 0, $hBMP = 0
 Global $iPIDGame = -1, $hFileOpen = -1, $hDLL = -1
 Global $iDriveSpaceFree = 0, $hWndCrash = 0
-Global $sTextCrash = "", $sTextReport = ""
+Global $sTextCrash = "", $sTextReport = "", $sFileDxdiag = ""
 Global $sTimestamp = "", $sDirCrashReport = "", $sDirCrashReportSaves = "", $sFileCrash = "", $sFileReport = "", $sFileDump = "", $sFileMd5 = "", $sFileJpg = ""
 Global $hForm1 = 0, $idEdit1 = 0, $idButton1 = 0, $idLabel1 = 0, $nMsg = 0
 Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aIniReadSection = 0, $asFileGetTime = 0
@@ -90,6 +90,15 @@ If (IsArray($asEnumUILanguages)) Then
 	WEnd
 EndIf
 $asEnumUILanguages = 0
+
+$asFileListToArray = _FileListToArray($sDirScript, "dxdiag.txt", $FLTA_FILES, True)
+If (IsArray($asFileListToArray)) Then
+	While Not ($asFileListToArray[0] == 0)
+		FileDelete($asFileListToArray[$asFileListToArray[0]])
+		$asFileListToArray[0] -= 1
+	WEnd
+EndIf
+$asFileListToArray = 0
 
 $asFileListToArray = _FileListToArray($sDirScript, "*_crash.txt", $FLTA_FILES, True)
 If (IsArray($asFileListToArray)) Then
@@ -311,6 +320,7 @@ While 1
 			$sDirCrashReportSaves = $sDirCrashReport & "\SAVEGAME"
 			$sFileCrash = $sDirCrashReport & "\" & $sTimestamp & "_crash.txt"
 			$sFileReport = $sDirCrashReport & "\" & $sTimestamp & "_report.txt"
+			$sFileDxdiag = $sDirCrashReport & "\dxdiag.txt"
 			$sFileDump = $sDirCrashReport & "\" & $sTimestamp & ".dmp"
 			$sFileMd5 = $sDirCrashReport & "\" & $sTimestamp & ".md5"
 			$sFileJpg = $sDirCrashReport & "\" & $sTimestamp & ".jpg"
@@ -402,6 +412,7 @@ While 1
 				EndIf
 				$iPIDFfmpegExe = 0
 			EndIf
+			$iPIDFfmpegExe = Run('dxdiag /whql:off /t "' & $sFileDxdiag & '"', $sDirScript, @SW_HIDE)
 			ProgressOff()
 			#Region ### START Koda GUI section ###
 			$hForm1 = GUICreate("Report", 641, 481, -1, -1, -1, BitOR($WS_EX_TOPMOST, $WS_EX_WINDOWEDGE))
@@ -536,6 +547,10 @@ While 1
 				FileClose($hFileOpen)
 			EndIf
 			$hFileOpen = -1
+			If Not (ProcessWaitClose($iPIDFfmpegExe, 15)) Then
+				ProcessClose($iPIDFfmpegExe)
+			EndIf
+			$iPIDFfmpegExe = 0
 			ProgressOff()
 			If (ProcessExists($iPIDGame)) Then
 				If (ProcessClose($iPIDGame)) Then
