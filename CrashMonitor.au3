@@ -3,10 +3,8 @@
 #AutoIt3Wrapper_Icon=CrashMonitor.ico
 #AutoIt3Wrapper_Compression=4
 #AutoIt3Wrapper_UseUpx=y
-#AutoIt3Wrapper_Res_SaveSource=y
-#AutoIt3Wrapper_Add_Constants=n
 #AutoIt3Wrapper_AU3Check_Stop_OnWarning=y
-#AutoIt3Wrapper_AU3Check_Parameters=-d -w 1 -w 2 -w 3 -w 4 -w 5 -w 6
+#AutoIt3Wrapper_AU3Check_Parameters=-d -w 1 -w 2 -w 3 -w 4 -w 5 -w 6 -w 7
 #AutoIt3Wrapper_Run_Tidy=y
 #AutoIt3Wrapper_Run_Au3Stripper=y
 #Au3Stripper_Parameters=/pe /so /sf /sv /rm
@@ -16,18 +14,18 @@ AutoItSetOption("TrayAutoPause", 0)
 AutoItSetOption("TrayIconHide", 1)
 ; *** Start added by AutoIt3Wrapper ***
 #include <APILocaleConstants.au3>
-#include <FileConstants.au3>
 #include <AutoItConstants.au3>
-#include <MsgBoxConstants.au3>
-#include <ProcessConstants.au3>
-#include <WindowsConstants.au3>
-#include <StaticConstants.au3>
+#include <FileConstants.au3>
 #include <GUIConstantsEx.au3>
+#include <MsgBoxConstants.au3>
+#include <StaticConstants.au3>
+#include <StructureConstants.au3>
+#include <WindowsConstants.au3>
 #include <Crypt.au3>
-#include <WinAPILocale.au3>
 #include <File.au3>
-#include <WinAPIProc.au3>
 #include <ScreenCapture.au3>
+#include <WinAPI.au3>
+#include <WinAPILocale.au3>
 ; *** End added by AutoIt3Wrapper ***
 
 
@@ -36,9 +34,11 @@ Const $sYandexToken = ""
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitorReportExe = "v2.10"
+Const $sVerCrashMonitor = "v2.11"
+Const $sMd5CrashMonitorDumpExe = "02a0efba35521896c1107a00e3014ae0"
+Const $sUrlCrashMonitorDumpExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitor & "/CrashMonitorDump.exe"
 Const $sMd5CrashMonitorReportExe = "95bd0bc005eb86ed5208e8498f2cf5c6"
-Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitorReportExe & "/CrashMonitorReport.exe"
+Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitor & "/CrashMonitorReport.exe"
 
 Const $sDirTemp = @TempDir & "\CrashMonitor"
 Const $sDirScript = @ScriptDir
@@ -48,20 +48,22 @@ Const $sFile7zxaDll = $sDirTemp & "\7zxa.dll"
 Const $sFileCrashMonitorLog = $sDirScript & "\CrashMonitor.log"
 Const $sFileTempFlv = $sDirScript & "\temp.flv"
 Const $sFileFfmpegExe = $sDirScript & "\ffmpeg.exe"
+Const $sFileCrashMonitorDumpDmp = $sDirScript & "\CrashMonitorDump.dmp"
+Const $sFileCrashMonitorDumpExe = $sDirScript & "\CrashMonitorDump.exe"
 Const $sFileCrashMonitorReportExe = $sDirScript & "\CrashMonitorReport.exe"
 
 Global $hWndGame = 0
 Global $bWndGameFullscreen = False
 Global $bMiniDump = False
-Global $tDumpType = DllStructCreate("DWORD")
+Global $iDumpType = 0
 Global $bWndGameCapture = False, $iPIDFfmpegExe = 0, $aEnumChildProcess = 0, $sTitleGame = ""
 Global $bWndGameScreenshot = False, $aiWndGameRect = 0, $hCDC = 0, $hDDC = 0, $hBMP = 0
 Global $iPIDGame = -1, $hFileOpen = -1, $hDLL = -1
 Global $iDriveSpaceFree = 0, $hWndCrash = 0
 Global $sTextCrash = "", $sTextReport = ""
 Global $sTimestamp = "", $sDirCrashReport = "", $sDirCrashReportSaves = "", $sFileCrash = "", $sFileReport = "", $sFileDump = "", $sFileMd5 = "", $sFileJpg = ""
-Global $hOpenProcess = 0, $hCreateFile = 0, $hForm1 = 0, $idEdit1 = 0, $idButton1 = 0, $idLabel1 = 0, $nMsg = 0
-Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aMiniDump = 0, $aIniReadSection = 0, $asFileGetTime = 0
+Global $hForm1 = 0, $idEdit1 = 0, $idButton1 = 0, $idLabel1 = 0, $nMsg = 0
+Global $asEnumUILanguages = 0, $asFileListToArray = 0, $aProcessList = 0, $aEnumProcessWindows = 0, $aIniReadSection = 0, $asFileGetTime = 0
 
 Global $sText0 = "You have less than 1GB of free disk space, please free up a few gigabytes."
 Global $sText1 = "The application crashed with an error:"
@@ -138,9 +140,9 @@ Else
 EndIf
 
 If ($CmdLine[0] > 3) Then
-	DllStructSetData($tDumpType, 1, Ptr($CmdLine[4]))
+	$iDumpType = Ptr($CmdLine[4])
 Else
-	DllStructSetData($tDumpType, 1, Ptr("0x00000000"))
+	$iDumpType = Ptr("0x00000000")
 EndIf
 
 $iPIDGame = WinGetProcess($hWndGame)
@@ -358,30 +360,24 @@ While 1
 				WinSetState($hWndGame, "", @SW_MINIMIZE)
 			EndIf
 			If ($bMiniDump And FileExists($sDirCrashReport) And ProcessExists($iPIDGame)) Then
-				$hOpenProcess = _WinAPI_OpenProcess($PROCESS_ALL_ACCESS, 0, $iPIDGame, True)
-				If (@error == 0 And $hOpenProcess <> 0) Then
-					$hCreateFile = _WinAPI_CreateFile($sFileDump, $FC_OVERWRITE)
-					If (@error == 0 And $hCreateFile <> 0) Then
-						$aMiniDump = DllCall("dbghelp.dll", "bool", "MiniDumpWriteDump", "handle", $hOpenProcess, "dword", $iPIDGame, "handle", $hCreateFile, "dword", $tDumpType, "dword", 0, "dword", 0, "dword", 0)
-						If (@error == 0 And IsArray($aMiniDump)) Then
-							If ($aMiniDump[0] == 1) Then
-								_WinAPI_CloseHandle($hCreateFile)
-								_WinAPI_CloseHandle($hOpenProcess)
-							Else
-								_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '$aMiniDump = DllCall')
-							EndIf
-						Else
-							_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '(@error == 0 And IsArray($aMiniDump))')
-						EndIf
-						$aMiniDump = 0
-					Else
-						_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '_WinAPI_CreateFile')
-					EndIf
-					$hCreateFile = 0
-				Else
-					_error_log($sFileCrashMonitorLog, $sTimestamp, $sTextCrash, '_WinAPI_OpenProcess')
+				If Not (FileExists($sFileCrashMonitorDumpExe)) Then
+					InetGet($sUrlCrashMonitorDumpExe, $sFileCrashMonitorDumpExe)
 				EndIf
-				$hOpenProcess = 0
+				If Not (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorDumpExe, $CALG_MD5))) == $sMd5CrashMonitorDumpExe) Then
+					InetGet($sUrlCrashMonitorDumpExe, $sFileCrashMonitorDumpExe)
+				EndIf
+				ProgressSet(50)
+				If (FileExists($sFileCrashMonitorDumpExe)) Then
+					If (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorDumpExe, $CALG_MD5))) == $sMd5CrashMonitorDumpExe) Then
+						If (ProcessExists($iPIDGame)) Then
+							If (RunWait('"' & $sFileCrashMonitorDumpExe & '" "' & $iPIDGame & '" "' & $iDumpType & '"', $sDirScript, @SW_HIDE)) Then
+								FileDelete($sFileCrashMonitorDumpDmp)
+							Else
+								FileMove($sFileCrashMonitorDumpDmp, $sFileDump, $FC_CREATEPATH + $FC_OVERWRITE)
+							EndIf
+						EndIf
+					EndIf
+				EndIf
 			EndIf
 			ProgressSet(50)
 			If ($bWndGameScreenshot) Then
@@ -665,7 +661,7 @@ If (IsArray($asFileListToArray)) Then
 					ProgressSet(50)
 					If (FileExists($sFileCrashMonitorReportExe)) Then
 						If (StringLower(Hex(_Crypt_HashFile($sFileCrashMonitorReportExe, $CALG_MD5))) == $sMd5CrashMonitorReportExe) Then
-							If Not (RunWait('"' & $sFileCrashMonitorReportExe & '" --ytoken="' & $sYandexToken & '" --gtoken="' & $sGitHubToken & '" --file="' & $asFileListToArray[$asFileListToArray[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & '" --owner="' & $sGitHubOwner & '" --repo="' & $sGitHubRepo & '" --ver="' & $sVerCrashMonitorReportExe & '"', $sDirScript, @SW_HIDE)) Then
+							If Not (RunWait('"' & $sFileCrashMonitorReportExe & '" --ytoken="' & $sYandexToken & '" --gtoken="' & $sGitHubToken & '" --file="' & $asFileListToArray[$asFileListToArray[0]] & '" --md5="' & StringLower(Hex(_Crypt_HashFile($asFileListToArray[$asFileListToArray[0]], $CALG_MD5))) & '" --owner="' & $sGitHubOwner & '" --repo="' & $sGitHubRepo & '" --ver="' & $sVerCrashMonitor & '"', $sDirScript, @SW_HIDE)) Then
 								FileDelete($asFileListToArray[$asFileListToArray[0]])
 								FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_crash.txt"))
 								FileDelete(StringRegExpReplace($asFileListToArray[$asFileListToArray[0]], "\.7z$", "_report.txt"))
