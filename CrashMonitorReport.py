@@ -35,7 +35,7 @@ def check_issue(owner, repo, title):
     page = 1
     error = 0
     while True:
-        response = requests.get('https://api.github.com/repos/%s/%s/issues?state=all&labels=crashmonitor&page=%s' % (owner, repo, page), headers=headers)
+        response = requests.get('https://api.github.com/repos/%s/%s/issues?state=open&labels=crashmonitor&page=%s' % (owner, repo, page), headers=headers)
         if response.status_code == 200:
             if re.search(r'title', response.text.lower()):
                 jdata = response.json()
