@@ -35,7 +35,7 @@ Const $sYandexToken = ""
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitor = "v2.15"
+Const $sVerCrashMonitor = "v2.16"
 Const $sMd5CrashMonitorReportExe = "a5e911c737df3e550a08de6ad898d59b"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitor & "/CrashMonitorReport.exe"
 
@@ -277,7 +277,7 @@ While 1
 			$sDirCrashReportSaves = $sDirCrashReport & "\SAVEGAME"
 			$sFileCrash = $sDirCrashReport & "\" & $sTimestamp & "_crash.txt"
 			$sFileReport = $sDirCrashReport & "\" & $sTimestamp & "_report.txt"
-			$sFileDxdiag = $sDirCrashReport & "\" & $sTimestamp & "_dxdiag.txt"
+			$sFileDxdiag = $sTimestamp & "_dxdiag.txt"
 			$sFileDump = $sDirCrashReport & "\" & $sTimestamp & ".dmp"
 			$sFileMd5 = $sDirCrashReport & "\" & $sTimestamp & ".md5"
 			$sFileBmp = $sDirCrashReport & "\" & $sTimestamp & ".bmp"
@@ -424,7 +424,7 @@ While 1
 				EndIf
 				$iPIDFfmpegExe = 0
 			EndIf
-			$iPIDFfmpegExe = Run('dxdiag /whql:off /t "' & $sFileDxdiag & '"', $sDirScript, @SW_HIDE)
+			$iPIDFfmpegExe = Run('dxdiag /whql:off /t ' & $sFileDxdiag, $sDirCrashReport, @SW_HIDE)
 			If (FileExists($sDirSaves)) Then
 				DirCreate($sDirCrashReportSaves)
 				If (FileExists($sDirSaves & "\slotdat.ini")) Then
