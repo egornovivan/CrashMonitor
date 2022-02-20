@@ -35,8 +35,8 @@ Const $sYandexToken = ""
 Const $sGitHubToken = ""
 Const $sGitHubOwner = "egornovivan"
 Const $sGitHubRepo = "CrashMonitor"
-Const $sVerCrashMonitor = "v2.13"
-Const $sMd5CrashMonitorReportExe = "95bd0bc005eb86ed5208e8498f2cf5c6"
+Const $sVerCrashMonitor = "v2.15"
+Const $sMd5CrashMonitorReportExe = "a5e911c737df3e550a08de6ad898d59b"
 Const $sUrlCrashMonitorReportExe = "https://github.com/" & $sGitHubOwner & "/" & $sGitHubRepo & "/releases/download/" & $sVerCrashMonitor & "/CrashMonitorReport.exe"
 
 Const $sDirTemp = @TempDir & "\CrashMonitor"
@@ -356,6 +356,7 @@ While 1
 						EndIf
 					EndIf
 				EndIf
+				FileDelete($sFileCrashDumpDmp)
 				ContinueLoop
 			EndIf
 			If Not ($hWndCrash == 0) Then
